@@ -31,19 +31,22 @@ DSH Lite 不像 0.5.1 那样用 iframe 嵌入整站，而是**自研 webview + R
 | M4 | 工具卡片：tool/call 命令行 + tool/result 折叠展开；附件/图片降级占位 | ✅ |
 | M5 | 打磨与共存 + 打包 | 🚧 进行中 |
 
-**验收路径**：`npm run typecheck` && `npm test`（70 通过 / 1 跳过——真实 dsh 冒烟需健康环境）。
+**验收路径**：`npm run typecheck` && `npm test`（72 通过 / 1 跳过——真实 dsh 冒烟需健康环境）。
 
 > ⚠️ 真实 dsh 端到端（会话打开渲染、写文件+命令任务走完、与 0.5.1 同开 1 小时）
 > 需在**本机正常终端**跑：`DSH_LITE_E2E=1 npm test`（沙箱内 dsh boot 受
 > `~/.dsh/.credentials.yaml.lock` 写锁竞争影响无法完成，非代码缺陷）。
 > 沙箱中留下的锁：`rm -f ~/.dsh/.credentials.yaml.lock`。
 
-## 功能边界（0.1.2-rc.1 实测帧依据，见 docs/api/approval-and-tools.md）
+## 功能边界（0.1.2-rc.1 装机包实证，见 docs/api/approval-and-tools.md 与 docs/design/Cline功能评估.md）
 
-- 本机 profile 为 `danger-full-access`，**0.1.2-rc.1 follow 事件流不含审批/变更帧** →
-  Lite 不做 allow/deny 卡与 diff 卡（有真实帧源再实现）。
-- `assistant/chunk` 文本在 `data.chunk` 键；`session/*` 元事件不渲染；工具结果上限 2000 字。
-- 未实现：会话改名（无对应契约端点）、`/` 斜杠命令提示（无命令清单可依）、分页续拉（快照足够）。
+- **「Cline 式编辑器 shell」（实时 diff 拦截 / 编辑器写前确认 / checkpoint 恢复）在 Lite 中冗余，不做**
+  —— 那是 0.5.1 / dsh-cline 的定位（需 DSH 进程内插件 + 编辑器宿主）；Lite 补审批卡即可获得等价安全闸。
+- **DSH 原生 Agent 能力（后端契约均真实存在，按 M6 补齐，UI 保持极简一页）**：
+  斜杠命令平面（`dsh-commands`）、审批（`approval/asked` + 应答）、目标（`goal/change` + goals API）、
+  提问（user-questions）、编辑重发（`editLastPrompt`）。M6a 事件认知已补（状态行/静默分类）。
+- `assistant/chunk` 文本在 `data.chunk` 键；内部噪音事件（session/*、subagent/*、team/*、hook/* 等）不渲染。
+- 会话改名：未见契约端点，不做；分页续拉：快照已够，不做。
 
 ## 与 0.5.1 的交互边界
 

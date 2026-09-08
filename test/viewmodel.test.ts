@@ -159,6 +159,29 @@ test('session/* 生命周期元事件不渲染（推进 seq 但无条目）', ()
   assert.equal(vm.getState().lastSeq, 1);
 });
 
+test('审批/目标/计划类事件按实证类型显示状态行（0.1.2-rc.1 known-event-types）', () => {
+  const vm = new SessionViewModel();
+  vm.applyEvent(evt({ type: 'approval/asked', seq: 1, data: {} }));
+  vm.applyEvent(evt({ type: 'goal/change', seq: 2, data: {} }));
+  vm.applyEvent(evt({ type: 'plan/mode', seq: 3, data: {} }));
+  vm.applyEvent(evt({ type: 'permission/preset', seq: 4, data: {} }));
+  vm.applyEvent(evt({ type: 'model/selection', seq: 5, data: {} }));
+  const s = vm.getState();
+  assert.deepEqual(
+    s.entries.map((e) => e.text),
+    ['需要审批', '目标已更新', '计划模式', '权限档位变更', '模型切换'],
+  );
+});
+
+test('子代理/团队/钩子/网络请求等内部事件静默不渲染', () => {
+  const vm = new SessionViewModel();
+  for (const [i, t] of ['subagent/descriptor', 'team/member', 'hook/invoked', 'web/deepseek-search-llm-request'].entries()) {
+    vm.applyEvent(evt({ type: t, seq: i + 1, data: {} }));
+  }
+  assert.equal(vm.getState().entries.length, 0);
+  assert.equal(vm.getState().lastSeq, 4);
+});
+
 test('未识别事件折叠为 type 短标签状态行', () => {
   const vm = new SessionViewModel();
   vm.applyEvent(evt({ type: 'custom/weird', seq: 1 }));

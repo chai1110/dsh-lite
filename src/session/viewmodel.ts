@@ -33,6 +33,12 @@ const label = (s: string): string => {
 /** tool/result 文本存储上限（M4 §2.1；UI 侧折叠展示，存储全文无必要） */
 const TOOL_RESULT_CAP = 2000;
 
+/**
+ * 静默前缀：这些事件对聊天无意义（会话生命周期/子代理/团队/钩子/网络请求等内部噪音），
+ * 推进 seq 但不产生渲染条目。类型全集以 0.1.2-rc.1 known-event-types.js 实证为准。
+ */
+const SILENT_PREFIXES = ['session/', 'subagent/', 'team/', 'hook/', 'request/', 'web/'];
+
 export class SessionViewModel {
   private entries: ViewEntry[] = [];
   private seenSeqs = new Set<number>();
@@ -156,9 +162,9 @@ export class SessionViewModel {
       this.emit();
       return true;
     }
-    // session/* 是会话生命周期元事件（如 session/end-seed），对聊天无意义：折叠为空行不渲染
-    if (t.startsWith('session/')) {
-      return false;
+    // 静默前缀：会话生命周期 / 子代理 / 团队 / 钩子 / 请求 / 网络内部事件不渲染（见 SILENT_PREFIXES）
+    for (const p of SILENT_PREFIXES) {
+      if (t.startsWith(p)) return false;
     }
     // 未识别事件：折叠为简短状态行，避免整条 JSON 糊在聊天里
     this.push({ seq, kind: 'status', text: label(t), ts });

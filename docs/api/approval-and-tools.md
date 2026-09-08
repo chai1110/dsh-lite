@@ -1,8 +1,13 @@
 # M4 设计 · 工具 / 审批 / 变更（docs/api/approval-and-tools.md）
 
-> 状态：🚧 进行中（工具渲染增强；审批/变更见 §4 实测结论）
+> 状态：🚧 进行中（工具渲染增强；审批见 §1 实测结论）
 > 目的：填 docs/api/remote-mux.md §5 的 5、6 号开放问题。结论以 0.1.2-rc.1 真实抓帧为准
 > （docs/api/fixtures/sample-0.1.2-rc.1.json，2026-09-07 采集，非臆造）。
+>
+> **2026-09-07 勘误（M6 前置，见 docs/design/Cline功能评估.md）**：§1 的「follow 流不含审批帧」仅对
+> 本机 `danger-full-access` 会话成立。装机包审计证明 0.1.2-rc.1 的审批契约真实存在
+> （`approval/asked` server-request + 客户端应答 echo rpcId，outcome `allowed-once|rejected`；
+> 事件全集 known-event-types.js 共 43 类）。审批卡 UI 列入 **M6c** 补齐；「变更 diff」维持不做。
 
 ## 1. 实测：follow 流里到底有哪些帧（§5 开放问题 5、6 的答案）
 
