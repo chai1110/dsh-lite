@@ -15,13 +15,22 @@
   "main": "./out/extension.js",
   "activationEvents": [
     "onView:dshLite.panel",
-    "onCommand:dshLite.openSidebar"
+    "onView:dshLite.panel.secondary",
+    "onCommand:dshLite.openSidebar",
+    "onCommand:dshLite.openChat"
   ],
   "contributes": {
     "viewsContainers": {
       "activitybar": [
         {
           "id": "dshLite",
+          "title": "DSH Lite",
+          "icon": "assets/icon.svg"
+        }
+      ],
+      "secondarySidebar": [
+        {
+          "id": "dshLiteSecondary",
           "title": "DSH Lite",
           "icon": "assets/icon.svg"
         }
@@ -34,15 +43,45 @@
           "name": "DSH Lite",
           "type": "webview"
         }
+      ],
+      "dshLiteSecondary": [
+        {
+          "id": "dshLite.panel.secondary",
+          "name": "DSH Lite",
+          "type": "webview"
+        }
       ]
     },
     "commands": [
       {
         "command": "dshLite.openSidebar",
-        "title": "打开 DSH 侧栏",
+        "title": "打开 DSH 侧栏（左侧）",
         "category": "DSH Lite"
+      },
+      {
+        "command": "dshLite.openChat",
+        "title": "在右侧打开对话",
+        "category": "DSH Lite",
+        "icon": "assets/icon.svg"
       }
     ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "dshLite.openChat",
+          "group": "navigation@0",
+          "when": "editorIsOpen"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "dshLite.openSidebar"
+        },
+        {
+          "command": "dshLite.openChat"
+        }
+      ]
+    },
     "configuration": {
       "title": "DSH Lite",
       "properties": {

@@ -20,8 +20,13 @@ export function activate(context: vscode.ExtensionContext): void {
   output.appendLine('[DSH Lite] 扩展已激活');
 
   const provider = new DshLitePanelProvider(context.extensionUri, output);
+  // M8：同一 provider 实例同时服务左侧栏(dshLite.panel)与右侧栏(dshLite.panel.secondary)两个视图，
+  // 各自独立 resolve，宿主状态广播到两侧，保证左右同屏同会话（与 Codex / Claude Code 一致）。
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider(DshLitePanelProvider.viewId, provider, {
+      webviewOptions: { retainContextWhenHidden: true },
+    }),
+    vscode.window.registerWebviewViewProvider(DshLitePanelProvider.viewIdSecondary, provider, {
       webviewOptions: { retainContextWhenHidden: true },
     }),
   );
@@ -56,6 +61,15 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     vscode.commands.registerCommand('dshLite.openSidebar', async () => {
       await vscode.commands.executeCommand(`${DshLitePanelProvider.viewId}.focus`);
+    }),
+    // M8：右上角 editor/title 入口 → 在右侧（次要）侧栏启动对话；
+    // 旧版 VS Code(<1.106) 无 secondarySidebar 容器时回退到左侧栏。
+    vscode.commands.registerCommand('dshLite.openChat', async () => {
+      try {
+        await vscode.commands.executeCommand(`${DshLitePanelProvider.viewIdSecondary}.focus`);
+      } catch {
+        await vscode.commands.executeCommand(`${DshLitePanelProvider.viewId}.focus`);
+      }
     }),
   );
 }

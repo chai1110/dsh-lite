@@ -23,8 +23,11 @@ import {
 
 export class DshLitePanelProvider implements vscode.WebviewViewProvider {
   static readonly viewId = 'dshLite.panel';
+  /** M8：右侧（次要）侧栏中的视图；与左侧视图共用同一 provider 实例与会话 */
+  static readonly viewIdSecondary = 'dshLite.panel.secondary';
 
-  private view?: vscode.WebviewView;
+  /** 当前存活的 webview 视图，按 viewType(=viewId) 索引：左侧栏与右侧栏可并存 */
+  private readonly views = new Map<string, vscode.WebviewView>();
   private state: PanelState = initialState();
   private conn?: ConnectionManager;
   private service?: SessionService;
@@ -55,7 +58,8 @@ export class DshLitePanelProvider implements vscode.WebviewViewProvider {
     _context: vscode.WebviewViewResolveContext,
     _token: vscode.CancellationToken,
   ): void {
-    this.view = webviewView;
+    const viewType = webviewView.viewType;
+    this.views.set(viewType, webviewView);
     const outUri = vscode.Uri.joinPath(this.extensionUri, 'out');
 
     webviewView.webview.options = {
@@ -72,12 +76,10 @@ export class DshLitePanelProvider implements vscode.WebviewViewProvider {
     });
 
     webviewView.onDidDispose(() => {
-      if (this.view === webviewView) {
-        this.view = undefined;
-      }
+      this.views.delete(viewType);
     });
 
-    this.output.appendLine('[panel] webview 已创建，等待 UI 握手');
+    this.output.appendLine(`[panel:${viewType}] webview 已创建，等待 UI 握手`);
   }
 
   private handleUiMessage(msg: UiMessage): void {
@@ -212,7 +214,10 @@ export class DshLitePanelProvider implements vscode.WebviewViewProvider {
   }
 
   private post(message: HostMessage): void {
-    void this.view?.webview.postMessage(message);
+    // M8：广播给左/右所有存活视图，两侧始终同屏同会话
+    for (const view of this.views.values()) {
+      void view.webview.postMessage(message);
+    }
   }
 
   private getHtml(webview: vscode.Webview, outUri: vscode.Uri): string {

@@ -15,12 +15,12 @@ DSH Lite 不像 0.5.1 那样用 iframe 嵌入整站，而是**自研 webview + R
 | 通信 | 整站资源加载 | postMessage RPC 直连本机 DSH |
 | 扩展 ID / 配置前缀 | `dsh-vscode` / `dsh.*` | `dsh-lite` / `dshLite.*` |
 | 页面数量 | 含整站全部页面 | 一页到底，无设置页 |
-| 激活事件 | 13 个 | 2 个（`onView:dshLite.panel` / `onCommand:dshLite.openSidebar`） |
+| 激活事件 | 13 个 | 4 个（两视图 `onView:dshLite.panel[.secondary]` + 两命令 `onCommand:dshLite.openSidebar|openChat`） |
 | 并存 | — | 与 0.5.1 **可同时启用、互不干扰**（容器 id、配置前缀均独立） |
 
 ## 当前状态
 
-**M1~M7 已实现**（本地构建 + 89 项单测通过，含真实 dsh E2E）：
+**M1~M8 已实现**（本地构建 + 89 项测试：沙箱 86 通过 / 0 失败 / 3 跳过（真实 dsh E2E），本机 `DSH_LITE_E2E=1` 89/89 全绿）：
 
 | 里程碑 | 内容 | 状态 |
 |---|---|---|
@@ -32,8 +32,9 @@ DSH Lite 不像 0.5.1 那样用 iframe 嵌入整站，而是**自研 webview + R
 | M5 | 打磨与共存 + 打包 | ✅ |
 | M6 | 原生 Agent 能力：斜杠命令平面 + 审批应答卡 + 目标 dock（后端契约全保留，UI 极简） | ✅ |
 | M7 | 会话管理：全量历史（不按 cwd 过滤，与浏览器一致）+ 命名 + 归档/取消归档分组 | ✅ |
+| M8 | 双栏布局：右侧（次要）侧栏容器 + 右上角入口（editor/title 图标，点它右侧开聊），左右同屏同会话，对齐 Codex / Claude Code / 0.5.1 | ✅ |
 
-**验收路径**：`npm run typecheck` && `npm test`（89 通过 / 0 跳过——真实 dsh 三次 boot M1/M6/M7 集成全绿）。
+**验收路径**：`npm run typecheck` && `npm test`（沙箱 86 通过 / 0 失败 / 3 跳过；本机 `DSH_LITE_E2E=1` 89/89——真实 dsh 三次 boot M1/M6/M7 集成全绿）。
 
 > ⚠️ 真实 dsh 端到端（会话打开渲染、写文件+命令任务走完、与 0.5.1 同开 1 小时）
 > 需在**本机正常终端**跑：`DSH_LITE_E2E=1 npm test`（沙箱内 dsh boot 受

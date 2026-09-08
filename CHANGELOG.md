@@ -5,6 +5,21 @@
 
 ## 未发布
 
+### M8 双栏布局：右侧（次要）侧栏 + 右上角入口（对齐 Codex / Claude Code / 0.5.1）
+- **双容器**：`viewsContainers` 新增 `secondarySidebar` 容器 `dshLiteSecondary`
+  （与既有左侧 activitybar 容器 `dshLite` 并存），视图 `dshLite.panel.secondary` 与
+  `dshLite.panel` 各自独立 resolve——左侧栏、右侧栏可同时打开。
+- **右上角入口**：`menus."editor/title"`（navigation@0, `editorIsOpen`）挂
+  `dshLite.openChat`（图标复用 `assets/icon.svg`）——点它即「在右侧打开对话」，
+  聚焦右侧栏视图；旧版 VS Code（<1.106，无 secondarySidebar）时命令回退聚焦左侧栏。
+- **宿主侧**：`DshLitePanelProvider` 由单 view 引用改为
+  `Map<viewType, WebviewView>` 多视图服务——同一 provider 实例对两个 viewId 各注册一次，
+  状态变更广播到两侧，保证左右同屏同会话（会话/审批/目标在两侧实时一致）。
+- **激活**：`activationEvents` 增 `onView:dshLite.panel.secondary` 与
+  `onCommand:dshLite.openChat`；`retainContextWhenHidden` 对两视图均保留。
+- 命令调色板补充：`dshLite.openSidebar`（左侧）、`dshLite.openChat`（右侧）均可搜到。
+- 要求：secondarySidebar 容器需 VS Code ≥ 1.106 才显示；旧版本自动降级为仅左侧。
+
 ### M7 会话管理：全量历史 + 命名 + 归档/取消归档
 - **全量历史（不再按 cwd 过滤）**：移除连接层 `filterSessionsByCwd` 过滤，会话清单改为
   session/list 全量展示——与官方浏览器 GUI 同源（同 ~/.dsh 库），彻底解决「浏览器能查到、
