@@ -1,0 +1,111 @@
+{
+  "name": "dsh-lite",
+  "displayName": "DSH Lite",
+  "description": "DeepSeek Harness 的精简 VS Code 侧栏客户端：一页到底，只保留对话、会话与审批。",
+  "version": "0.0.1",
+  "publisher": "chai1110",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "main": "./out/extension.js",
+  "activationEvents": [
+    "onView:dshLite.panel",
+    "onCommand:dshLite.openSidebar"
+  ],
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "dshLite",
+          "title": "DSH Lite",
+          "icon": "assets/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "dshLite": [
+        {
+          "id": "dshLite.panel",
+          "name": "DSH Lite",
+          "type": "webview"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "dshLite.openSidebar",
+        "title": "打开 DSH 侧栏",
+        "category": "DSH Lite"
+      }
+    ],
+    "configuration": {
+      "title": "DSH Lite",
+      "properties": {
+        "dshLite.executablePath": {
+          "type": "string",
+          "default": "",
+          "description": "dsh 可执行文件的绝对路径；留空则自动探测（M1 生效）。"
+        },
+        "dshLite.autoStart": {
+          "type": "boolean",
+          "default": true,
+          "description": "没有可用实例时自动启动 dsh（M1 生效）。"
+        },
+        "dshLite.openOnStartup": {
+          "type": "boolean",
+          "default": false,
+          "description": "启动 VS Code 后自动聚焦 DSH 侧栏（M1 生效）。"
+        },
+        "dshLite.composerEnterBehavior": {
+          "type": "string",
+          "enum": ["send", "newline"],
+          "enumDescriptions": ["Enter 发送消息", "Enter 换行"],
+          "default": "send",
+          "description": "输入框中 Enter 键的行为（M3 生效）。"
+        },
+        "dshLite.followUpQueueMode": {
+          "type": "string",
+          "enum": ["queue", "steer"],
+          "enumDescriptions": ["排队：等当前回合结束再发", "跟进：立即插入当前回合"],
+          "default": "queue",
+          "description": "运行中再次发送消息时的处理方式（M3 生效）。"
+        },
+        "dshLite.workspaceRootIndex": {
+          "type": "number",
+          "default": 0,
+          "description": "多根工作区时使用第几个根作为会话 cwd（M3 生效）。"
+        },
+        "dshLite.advanced.port": {
+          "type": "number",
+          "default": 3082,
+          "description": "固定监听端口；被占用时自动回退到空闲端口（M1 生效）。"
+        },
+        "dshLite.advanced.logLevel": {
+          "type": "string",
+          "enum": ["error", "warn", "info", "debug"],
+          "default": "info",
+          "description": "日志级别（M5 生效）。"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "node scripts/build.mjs",
+    "watch": "node scripts/build.mjs --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "node scripts/build.mjs --test && node --test \"out/test/**/*.test.js\"",
+    "package": "npm run compile && npx --yes @vscode/vsce package -o dsh-lite.vsix"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@types/react": "^18.3.17",
+    "@types/react-dom": "^18.3.5",
+    "@types/vscode": "^1.90.0",
+    "esbuild": "^0.24.2",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "typescript": "^5.7.2"
+  }
+}

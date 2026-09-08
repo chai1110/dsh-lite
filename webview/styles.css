@@ -1,0 +1,162 @@
+/* webview/styles.css — 只用 --vscode-* 变量，明暗主题自动跟随。
+   颜色、字体、边框全部取自 VS Code 主题变量，禁止写死任何色值。 */
+
+* {
+  box-sizing: border-box;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background-color: var(--vscode-sideBar-background);
+  color: var(--vscode-foreground);
+  font-family: var(--vscode-font-family);
+  font-size: var(--vscode-font-size, 13px);
+}
+
+/* 顶栏：固定一行 */
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--vscode-panel-border);
+  flex: 0 0 auto;
+}
+
+.conn-dot {
+  width: 8px;
+  height: 8px;
+  margin-left: auto;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+
+/* 消息区：占满剩余空间，可滚动 */
+.messages {
+  flex: 1 1 auto;
+  overflow: auto;
+  padding: 12px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.empty {
+  margin: auto;
+  text-align: center;
+  color: var(--vscode-descriptionForeground);
+}
+
+.empty-title {
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+
+.empty-sub {
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.msg {
+  padding: 6px 8px;
+  border-radius: 4px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.msg-user {
+  background-color: var(--vscode-editor-inactiveSelection-background, var(--vscode-button-background));
+  color: var(--vscode-foreground);
+}
+
+.msg-assistant {
+  background-color: var(--vscode-editor-background);
+  border: 1px solid var(--vscode-panel-border);
+}
+
+.msg-system {
+  color: var(--vscode-descriptionForeground);
+  font-style: italic;
+}
+
+/* 输入区：固定底部 */
+.composer {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border-top: 1px solid var(--vscode-panel-border);
+}
+
+.composer-input {
+  width: 100%;
+  resize: none;
+  background-color: var(--vscode-input-background);
+  color: var(--vscode-input-foreground, var(--vscode-foreground));
+  border: 1px solid var(--vscode-input-border, var(--vscode-panel-border));
+  border-radius: 4px;
+  padding: 6px 8px;
+  font-family: var(--vscode-font-family);
+  font-size: var(--vscode-font-size, 13px);
+}
+
+.composer-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+/* 按钮：贴近 VS Code 原生观感 */
+.btn {
+  background-color: var(--vscode-button-secondaryBackground, var(--vscode-button-background));
+  color: var(--vscode-button-secondaryForeground, var(--vscode-button-foreground));
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 4px;
+  padding: 3px 10px;
+  min-width: 28px;
+  font-family: var(--vscode-font-family);
+  font-size: var(--vscode-font-size, 13px);
+  cursor: pointer;
+}
+
+.btn:hover:not(:disabled) {
+  background-color: var(--vscode-button-secondaryHoverBackground, var(--vscode-button-hoverBackground));
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.btn-primary {
+  background-color: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background-color: var(--vscode-button-hoverBackground);
+}
+
+/* 协议不匹配：醒目提示，覆盖整个面板 */
+.mismatch {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 16px;
+  background-color: var(--vscode-sideBar-background);
+}
+
+.mismatch-banner {
+  max-width: 90%;
+  padding: 12px 14px;
+  border: 1px solid var(--vscode-errorForeground, var(--vscode-panel-border));
+  border-radius: 6px;
+  background-color: var(--vscode-editor-background);
+  color: var(--vscode-errorForeground, var(--vscode-foreground));
+  font-size: 13px;
+  text-align: center;
+}

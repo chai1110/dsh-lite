@@ -1,0 +1,13 @@
+.git/**
+.gitignore
+.vscodeignore
+src/**
+webview/**
+docs/**
+test/**
+tools/**
+node_modules/**
+scripts/**
+tsconfig.json
+*.vsix
+.DS_Store
