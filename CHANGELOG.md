@@ -5,6 +5,20 @@
 
 ## 未发布
 
+### 校验修复（M0–M6 全量走查 + 真实 dsh E2E 固化）
+- 走查修复 ①斜杠浮层死锁：`commands` 未就绪时浮层永远不出现 → 拆「拉取资格」与「可见性」，
+  首击 `/` 即触发目录拉取（webview/app.tsx）。
+- 走查修复 ②Esc/点选关闭浮层后被 effect 立即重新拉起 → 加本地 `slashDismissed` 标记，
+  「用户主动关闭」不再因宿主清目录(commands→undefined)被当作「尚未拉取」重发请求。
+- 走查修复 ③断线后陈旧审批卡：WS 重连网关会对新 `$events` 代次重推待批瀑布 →
+  断开时清空 `pendingApprovals`（src/session/service.ts onConnection），补单测锁定。
+- 走查修复 ④审批卡在未就绪(连接中)时也渲染 → 增加 `ready` 门槛。
+- E2E 固化：`test/integration.dsh.test.ts` 改为 DSH_HOME 自动隔离（沙箱可跑、本机不污染），
+  M1 修正 control 首帧断言（0.1.2-rc.1 实测为 typed 帧 `{type:'baseline', value:{queues,jobs,projections}}`），
+  新增 M6 真实 dsh 用例：commands/list（内置 ≥5 含 goal/plan/permission）→ `/goal` 执行 →
+  command 配对与目标折叠（走 SessionController 产品路径）→ goals CAS（陈旧 ref 拒绝、正确 ref pause/clear）。
+- 单测 83 通过 / 0 跳过（含 E2E：真实 dsh 两次 boot 全绿）。
+
 ### M6 原生 Agent 能力：斜杠命令 / 审批 / 目标（后端契约全保留，UI 极简）
 - 契约勘误：0.1.2-rc.1 装机包实证 `commands/*`、`goals/*`、`approval/*`、`goal/change` 全部真实存在；
   修正 M2–M4「follow 流无审批/命令帧 → 不做」的旧结论（见 docs/design/命令与审批与目标.md §1）。

@@ -289,8 +289,13 @@ export class SessionService {
         this.select(snap.sessions[0].sessionId);
       }
     } else if (snap.phase !== 'connecting') {
-      // 断开/出错：目录与审批卡片清场（审批 Map 保留，重连后瀑布重发）
+      // 断开/出错：目录与审批卡片清场。审批 Map 一并清空——
+      // 若只是 WS 断（进程在），重连后网关会对新 $events 代次重推待批瀑布（幂等重建）。
       this.closeSlash();
+      if (this.pendingApprovals.size > 0) {
+        this.pendingApprovals.clear();
+        this.emit();
+      }
       this.hub?.close();
       this.hub = null;
     }

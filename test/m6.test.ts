@@ -85,6 +85,11 @@ class FakeConn {
     this.sessions = sessions;
     this.emit();
   }
+  /** 测试用：连接断开（offline/error），广播快照 */
+  become(phase: 'offline' | 'error'): void {
+    this.phase = phase;
+    this.emit();
+  }
   private emit(): void {
     const snap = this.getSnapshot();
     for (const cb of this.listeners) cb(snap);
@@ -292,6 +297,41 @@ test('$events 审批瀑布：ready→waterfall→应答($events/result)→cancel
   // cancel 帧到达也无副作用
   evStream.push({ type: 'cancel', eventId: 'evt-1' });
   assert.equal(svc.getPendingApproval(), null);
+});
+
+test('断开连接清空待批审批（防 WS 重连后陈旧审批卡残留）', () => {
+  const conn = new FakeConn();
+  const svc = makeService(conn, []);
+  conn.becomeReady([brief('s1')]);
+  const evStream = conn.mux.streamByEndpoint('$events');
+  assert.ok(evStream);
+  evStream.push({ type: 'ready', clientId: 'client-1', host: { home: '/tmp' } });
+  evStream.push({
+    type: 'waterfall',
+    event: 'approval/request',
+    eventId: 'evt-9',
+    agentId: 's1',
+    request: { toolName: 'shell', reason: '旧代次待批' },
+  });
+  assert.ok(svc.getPendingApproval(), '断开前有待批');
+
+  conn.become('offline');
+  assert.equal(svc.getPendingApproval(), null, '断开后待批清空（重连由网关对新 $events 代次重推）');
+
+  // 重连后同一 eventId 的瀑布可再次入列（幂等重建）：取「最新」的 $events 流（旧流已被 hub.close 取消）
+  conn.becomeReady([brief('s1')]);
+  const ev2 = [...conn.mux.opened].reverse().find((o) => o.endpoint === '$events')?.stream ?? null;
+  assert.ok(ev2 && ev2 !== evStream, '重连后是新 $events 流');
+  ev2.push({ type: 'ready', clientId: 'client-2', host: { home: '/tmp' } });
+  ev2.push({
+    type: 'waterfall',
+    event: 'approval/request',
+    eventId: 'evt-9',
+    agentId: 's1',
+    request: { toolName: 'shell', reason: '新代次重推' },
+  });
+  const pending = svc.getPendingApproval();
+  assert.ok(pending && pending.eventId === 'evt-9', '重推后可再次应答');
 });
 
 test('goalAction(pause) 走 goals/pause HTTP 并携带当前 ref', async () => {

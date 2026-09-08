@@ -112,6 +112,8 @@ export function App(): ReactElement {
   const [dropdown, setDropdown] = useState(false);
   const [draft, setDraft] = useState('');
   const [slashIdx, setSlashIdx] = useState(0);
+  /** 用户 Esc/点选等主动关过浮层 → 本次 '/' 编辑态内不再自动重拉/重开（与「尚未拉取」区分） */
+  const [slashDismissed, setSlashDismissed] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [createDraft, setCreateDraft] = useState('');
   const [goalBusy, setGoalBusy] = useState<'pause' | 'resume' | 'clear' | null>(null);
@@ -173,8 +175,11 @@ export function App(): ReactElement {
 
   // —— M6b 斜杠浮层：draft 形如 /name（无空格）时展示；命令目录来自宿主下拉（commands）——
   const slashQuery = draft.match(/^\/([^\s]*)$/)?.[1] ?? null;
-  const slashOpen =
-    ready && state.activeSessionId !== null && slashQuery !== null && state.commands !== undefined;
+  // 具备弹层资格：就绪 + 有活动会话 + 输入形如 '/name'
+  const slashEligible = ready && state.activeSessionId !== null && slashQuery !== null;
+  // 可见性：宿主已给出命令目录（null=拉取中 / 数组=就绪）；undefined=尚未拉取 → 先不显示；
+  // 用户主动关过（slashDismissed）→ 本次编辑态内保持隐藏
+  const slashOpen = slashEligible && !slashDismissed && state.commands !== undefined;
   const slashRows = useMemo(() => {
     const rows = state.commands ?? [];
     const q = (slashQuery ?? '').toLowerCase();
@@ -182,15 +187,22 @@ export function App(): ReactElement {
     return rows.filter((c) => c.name.toLowerCase().includes(q));
   }, [state.commands, slashQuery]);
 
-  // 初次进入 '/' 或重新输入时：请求目录 + 复位高亮
+  // 进入 '/' 编辑态：请求目录（首次 commands===undefined 且未被用户关闭时才上行，避免每键刷）；
+  // 退出 '/' 编辑态（slashEligible=false）→ 复位 dismissed，下次 '/' 重新可用
   useEffect(() => {
-    if (!slashOpen) return;
+    if (!slashEligible) {
+      if (slashDismissed) setSlashDismissed(false);
+      return;
+    }
     setSlashIdx(0);
-    post({ type: 'ui/slashQuery', text: draft });
-  }, [slashOpen, draft]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (!slashDismissed && state.commands === undefined) {
+      post({ type: 'ui/slashQuery', text: draft });
+    }
+  }, [slashEligible, slashDismissed, state.commands]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const closeSlash = (): void => {
     setSlashIdx(0);
+    setSlashDismissed(true); // 主动关闭：宿主清目录后不会因 commands→undefined 被 effect 重新拉取
     post({ type: 'ui/slashClose' });
   };
 
@@ -410,8 +422,8 @@ export function App(): ReactElement {
       </main>
 
       <footer className="composer">
-        {/* M6c 审批卡：当前会话有待批审批时置顶显示 */}
-        {approval ? (
+        {/* M6c 审批卡：就绪且当前会话有待批审批时置顶显示 */}
+        {ready && approval ? (
           <div className="approval-card" role="alert">
             <div className="approval-strip">
               <span className="approval-dot" />
