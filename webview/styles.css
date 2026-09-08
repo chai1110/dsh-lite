@@ -71,29 +71,51 @@
   word-break: break-word;
 }
 
+/* M9 对话观感：user 右气泡（柔背景 + 右对齐 + 限宽 88%）；assistant 左整宽 + 紫色左 accent */
 .msg-user {
-  background-color: var(--vscode-editor-inactiveSelection-background, var(--vscode-button-background));
-  color: var(--vscode-foreground);
+  align-self: flex-end;
+  max-width: 88%;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  background-color: var(--vscode-button-secondaryBackground, var(--vscode-editor-inactiveSelection-background));
+  color: var(--vscode-button-secondaryForeground, var(--vscode-foreground));
+  border-radius: 10px;
+  padding: 7px 10px;
 }
 
 .msg-assistant {
-  background-color: var(--vscode-editor-background);
-  border: 1px solid var(--vscode-panel-border);
+  align-self: flex-start;
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 4px 4px 4px 8px;
+  border-left: 3px solid var(--vscode-charts-purple, var(--vscode-panel-border));
+  background-color: transparent;
 }
 
 .msg-system {
+  align-self: flex-start;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
   color: var(--vscode-descriptionForeground);
   font-style: italic;
 }
 
-/* M4 工具卡片：call=等宽命令行，result=可折叠结果 */
+/* M4 工具卡片：call=等宽命令行，result=可折叠结果；缩进与浅边 */
 .msg-tool {
+  align-self: flex-start;
+  width: 100%;
   background-color: var(--vscode-editor-background);
   border: 1px dashed var(--vscode-panel-border);
+  border-left: 3px solid var(--vscode-charts-blue, var(--vscode-panel-border));
   border-radius: 4px;
   padding: 4px 8px;
   font-size: 12px;
   max-width: 100%;
+  margin-left: 6px;
 }
 
 .msg-tool-call {
@@ -382,12 +404,15 @@
 
 /* —— M6b 斜杠命令条目 —— */
 .msg-command {
+  align-self: flex-start;
+  width: 100%;
   background-color: var(--vscode-editor-background);
   border: 1px solid var(--vscode-panel-border);
   border-left: 3px solid var(--vscode-charts-purple, var(--vscode-panel-border));
   border-radius: 4px;
   padding: 5px 8px;
   font-size: 12px;
+  margin-left: 6px;
 }
 
 .cmd-line {
@@ -641,7 +666,12 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  max-width: 100%;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 60%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .session-btn-title {

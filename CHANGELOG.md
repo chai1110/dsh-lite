@@ -5,6 +5,18 @@
 
 ## 未发布
 
+### M9 修复（实机核查反馈：顶栏右区消失 / 消息观感 / 右上角入口可见性）
+- **修复顶栏右区被挤出**：M9 误把 `.session-btn` 改成 `max-width:100%`，把「连接点 + 新建圆钮」
+  （.topbar-right）挤到视口外；恢复 `max-width:60%` + `min-width:0`（可收缩/省略号），右侧操作组回归。
+- **消息观感回归对话节奏**：user 消息改为**右对齐柔和气泡**（限宽 88%）；assistant 左整宽、
+  3px 紫色左 accent + sparkle 小图标；tool/command 卡片左缩进 6px 并带彩色左竖条
+  （工具=蓝、命令=紫）——修正 M9 初版「user/assistant 同色块难区分、工具直白平铺」的杂乱感。
+- **右上角入口始终可见**：`menus.editor/title` 移除 `when: editorIsOpen`——之前必须打开过
+  编辑器文件才显示右上角 logo（Codex/CC 恒显示），现在任何时候都显示。
+- **新增 UI 预览工具** `tools/preview.html`：mock 宿主（假会话/消息/目标）+ `acquireVsCodeApi`
+  桩，配无头 Chrome 截图即可自查 UI（`python3 -m http.server 8899` + chrome headless screenshot）。
+- 测试：typecheck + 全量单测 0 fail（沙箱 86 过 / 3 跳过 E2E）。
+
 ### M9 符号与交互对齐（Codex / Claude Code 观感）：图标字体 + 历史搜索分组 + 消息行操作
 - **codicon 图标字体**：vendor `@vscode/codicons`（css+ttf → `assets/codicons/`，url query 已剔除），
   provider 的 `localResourceRoots` 增 assets、CSP 放行 `font-src`、head 按需注入 css；

@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>DSH Lite UI Preview</title>
+<link rel="stylesheet" href="../assets/codicons/codicon.css" />
+<link rel="stylesheet" href="../out/webview.css" />
+<style>
+  html, body { height: 100%; margin: 0; background: #1e1e1e; }
+  #root { height: 100%; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+  // —— mock 宿主侧 ——
+  window.__ui = [];
+  window.acquireVsCodeApi = () => ({
+    postMessage: (m) => { window.__ui.push(m); },
+  });
+  // 等 webview 挂载并发出 hello 后再下发假状态
+  const DAY = 86400000;
+  const now = Date.now();
+  const session = (id, title, updatedAt, running, cwd, archived) =>
+    ({ sessionId: id, title, updatedAt, running, cwd, archived });
+  const sessions = [
+    session('s1', '优化 dsh-lite 消息流布局的调研与实现', now - 5 * 60000, false, '~/dsh-vscode-lite', undefined),
+    session('s2', 'M8 双栏容器与右上角入口', now - 2 * 3600000, true, '~/dsh-vscode-lite', undefined),
+    session('s3', '解决 0.1.2-rc.1 unarchive 404', now - 1.2 * DAY, false, '~/dsh-custom-patches', undefined),
+    session('s4', '妈妈抖音号养花脚本（昨天中午）', now - 1.05 * DAY, false, '~/抖音副业', undefined),
+    session('s5', '30 天减脂第 2 周复盘', now - 3 * DAY, false, '~/减脂', undefined),
+    session('s6', '旧的 dsh 历史会话', now - 20 * DAY, false, '~/旧项目', undefined),
+    session('s7', '已归档：M1 原型对话', now - 30 * DAY, false, '~/归档', true),
+    session('s8', '已归档：踩坑记录', now - 8 * DAY, false, '~/归档', true),
+  ];
+  const messages = [
+    { id: 'm1', role: 'user', text: '把消息流的布局改成左边是角色图标、右边是内容，hover 出复制按钮，像 Codex 那样。' },
+    { id: 'm2', role: 'assistant', text: '好的，我来梳理一下改造点：顶栏改成「logo + 历史入口」，消息行加角色图标列，发送按钮改成圆形。\n需要同时保证双栏（左/右）都能用。' },
+    { id: 'm3', kind: 'tool', role: 'assistant', toolState: 'call', text: 'rg -n "MsgRow|msg-row" webview/', id: '' },
+    { id: 'm4', kind: 'tool', role: 'assistant', toolState: 'result', text: 'webview/app.tsx:83:function MsgRow...\nwebview/styles.css:412:.msg-row{display:flex...}\n（共 12 处命中，其中含长文本的会被 clamp 折叠到 6 行，点展开查看全文。这是一段用于验证长结果折叠展示的补充说明文字，确保超过 300 字符的阈值以便渲染出展开/收起按钮。这段文字可以再长一点也没有关系，主要目的是触发 long 分支。）' },
+    { id: 'm5', role: 'assistant', text: '另外我注意到 0.5.1 是通过 iframe 内嵌官方整站，所以它天然就长官方 GUI 那样；我们是自研 webview，需要在符号和布局上主动对齐。' },
+    { id: 'm6', kind: 'command', role: 'assistant', cmdState: 'run', text: '/goal 完成 UI 符号化改造', cmdOk: undefined },
+    { id: 'm7', kind: 'command', role: 'assistant', cmdState: 'done', cmdOk: true, text: '/goal 完成 UI 符号化改造', resultText: '目标已创建（进行中）' },
+    { id: 'm8', role: 'user', text: '运行 npm test 确认没有回归。' },
+    { id: 'm9', role: 'assistant', streaming: false, text: 'npm test 结果：86 passed / 0 failed / 3 skipped（E2E 需真机）。' },
+  ];
+  const state = {
+    connection: 'ready',
+    error: null,
+    sessions,
+    activeSessionId: 's1',
+    messages,
+    composerEnterBehavior: 'send',
+    goal: { id: 'g1', revision: 1, objective: '完成 UI 符号化改造', phase: 'active', maxGoalRounds: 5, roundsStarted: 1, createdAt: now - 60000, updatedAt: now - 30000 },
+    approval: null,
+    commands: [{ name: 'goal', description: '设定/查看目标', hint: 'objective' }, { name: 'clear', description: '清空当前上下文' }],
+  };
+  window.addEventListener('load', () => {
+    setTimeout(() => {
+      window.postMessage({ type: 'host/state', state }, '*');
+      // 历史视图模式：自动点开会话历史入口
+      if (new URLSearchParams(location.search).get('view') === 'history') {
+        setTimeout(() => { document.querySelector('.session-btn')?.click(); }, 300);
+      }
+    }, 200);
+  });
+</script>
+<script src="../out/webview.js"></script>
+</body>
+</html>

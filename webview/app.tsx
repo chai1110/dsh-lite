@@ -145,27 +145,58 @@ function MsgRow({ m }: { m: ViewMessage }): ReactElement {
     );
   }
 
-  const cls =
-    m.role === 'user' ? 'msg-user' : m.role === 'assistant' ? 'msg-assistant' : 'msg-system';
+  // M9 对话观感：user 右气泡；assistant 左整宽，左 3px 紫色 accent + 小角色图标；
+  // tool/command 缩进卡片；system 灰斜体。
   const hasCopy = m.text.length > 0;
+  if (m.role === 'user') {
+    return (
+      <div className="msg msg-user">
+        <div className="msg-body">{text || '\u00A0'}</div>
+        {hasCopy ? (
+          <span className="msg-actions">
+            <button
+              className="row-btn"
+              type="button"
+              title="复制消息"
+              onClick={() => copyText(m.text)}
+            >
+              <Icon n="copy" />
+            </button>
+          </span>
+        ) : null}
+      </div>
+    );
+  }
+
+  if (m.role === 'assistant') {
+    return (
+      <div className="msg msg-assistant">
+        <span className="msg-role-icon role-assistant" title="助手">
+          <Icon n={roleIcon(m.role)} />
+        </span>
+        <div className="msg-body">{text || '\u00A0'}</div>
+        {hasCopy ? (
+          <span className="msg-actions">
+            <button
+              className="row-btn"
+              type="button"
+              title="复制消息"
+              onClick={() => copyText(m.text)}
+            >
+              <Icon n="copy" />
+            </button>
+          </span>
+        ) : null}
+      </div>
+    );
+  }
+
   return (
-    <div className={`msg ${cls} msg-row`}>
-      <span className={`msg-role-icon role-${m.role}`}>
+    <div className="msg msg-system">
+      <span className="msg-role-icon role-system">
         <Icon n={roleIcon(m.role)} />
       </span>
       <div className="msg-body">{text || '\u00A0'}</div>
-      {hasCopy ? (
-        <span className="msg-actions">
-          <button
-            className="row-btn"
-            type="button"
-            title="复制消息"
-            onClick={() => copyText(m.text)}
-          >
-            <Icon n="copy" />
-          </button>
-        </span>
-      ) : null}
     </div>
   );
 }
