@@ -5,9 +5,9 @@
 // 2. 协议版本化：UI 启动先 hello 握手，版本不匹配时明确提示，绝不静默降级。
 // 3. 本文件是宿主与 UI 的**唯一共享契约**，两侧都从这里 import，禁止各写一份。
 // 4. 跨层模型（SessionBrief/ViewMessage/LiteErrorCode）在 src/model.ts，这里 re-export 保持路径兼容。
-import type { SessionBrief, ViewMessage } from '../model';
+import type { ApprovalView, CommandRow, GoalBrief, SessionBrief, ViewMessage } from '../model';
 
-export type { SessionBrief, ViewMessage };
+export type { ApprovalView, CommandRow, GoalBrief, SessionBrief, ViewMessage };
 
 /** 协议版本：宿主与 UI 必须一致；不一致时在面板内提示重载/升级。 */
 export const PROTOCOL_VERSION = 1;
@@ -25,6 +25,14 @@ export interface PanelState {
   composerEnterBehavior?: 'send' | 'newline';
   /** 仅 connection === 'error' | 'offline' 时有值（code 用 err.*，见 docs/api/connection.md §8）。 */
   error?: { code: string; message: string };
+  /** 当前会话的目标投影（M6d）；undefined/缺省 = 未知（无控制器），null = 确无目标 */
+  goal?: GoalBrief | null;
+  /** 当前会话待应答审批（M6c）；null = 无 */
+  approval?: ApprovalView | null;
+  /** 斜杠命令目录（M6b）；undefined = 未拉取/已关闭，null = 拉取中/失败(见 commandsError)，数组 = 就绪 */
+  commands?: CommandRow[] | null;
+  /** 命令目录拉取失败的原因（仅 commands === null 时有意义） */
+  commandsError?: string | null;
 }
 
 /** UI → 宿主。 */
@@ -39,10 +47,18 @@ export type UiMessage =
   | { type: 'ui/selectSession'; sessionId: string }
   /** 用户点「＋ 新建」（M3）。 */
   | { type: 'ui/newSession' }
-  /** 用户在输入框按 Enter 发送（M3）。 */
+  /** 用户在输入框按 Enter 发送（M3）。宿主侧对 '/xxx' 开头的行分流为斜杠命令执行（M6b）。 */
   | { type: 'ui/promptSubmit'; text: string }
   /** 用户点「停止」（M3）。 */
-  | { type: 'ui/stop' };
+  | { type: 'ui/stop' }
+  /** 输入框出现 '/' 前缀 → 请求拉取当前会话的命令目录（M6b）。 */
+  | { type: 'ui/slashQuery'; text: string }
+  /** 命令浮层关闭（Esc/失焦/执行后）→ 宿主清掉目录缓存（M6b）。 */
+  | { type: 'ui/slashClose' }
+  /** 审批卡按钮（M6c）：allowed-once=允许一次 / rejected=拒绝。 */
+  | { type: 'ui/approvalAnswer'; eventId: string; outcome: 'allowed-once' | 'rejected' }
+  /** 目标 dock 操作（M6d）：pause/resume/clear 走 goals.*；create 用 ui/promptSubmit('/goal …')。 */
+  | { type: 'ui/goalAction'; action: 'pause' | 'resume' | 'clear' };
 
 /** 宿主 → UI。 */
 export type HostMessage =

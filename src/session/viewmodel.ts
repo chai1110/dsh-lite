@@ -4,8 +4,9 @@
 // 设计取舍（text-first）：Lite 只维护「可读条目序列」，不做官方 MutableSessionEventSource
 // 的全量窗口——形状用 events.ts 防御式解析，未知事件折叠为状态行，保证不炸 UI。
 import { statusLineOf, textOf, toolCallText, type RawEvent, type SnapshotEvent } from './events';
+import type { GoalBrief, GoalPhase } from '../model';
 
-export type ViewEntryKind = 'user' | 'assistant' | 'tool' | 'status';
+export type ViewEntryKind = 'user' | 'assistant' | 'tool' | 'command' | 'status';
 
 export interface ViewEntry {
   seq: number;
@@ -16,6 +17,11 @@ export interface ViewEntry {
   /** tool 条目附带 */
   name?: string;
   toolState?: 'call' | 'result';
+  /** command 条目附带（M6b：command/run↔command/done 按 commandId 配对） */
+  commandId?: string;
+  cmdState?: 'run' | 'done';
+  cmdOk?: boolean;
+  resultText?: string;
   ts?: number;
 }
 
@@ -43,10 +49,16 @@ export class SessionViewModel {
   private entries: ViewEntry[] = [];
   private seenSeqs = new Set<number>();
   private lastSeq = 0;
+  private goal: GoalBrief | null = null;
   private listeners = new Set<() => void>();
 
   getState(): ViewModelState {
     return { entries: this.entries.slice(), lastSeq: this.lastSeq };
+  }
+
+  /** 当前目标投影（M6d：由 goal/change 整快照折叠；无目标/已 clear → null） */
+  getGoal(): GoalBrief | null {
+    return this.goal ? { ...this.goal } : null;
   }
 
   onChange(cb: () => void): () => void {
@@ -76,6 +88,50 @@ export class SessionViewModel {
       if (e.kind === 'user') return null; // 越过当前回合边界
     }
     return null;
+  }
+
+  /** 找最近一条仍处于 run 态的 command 条目（command/done 的配对目标） */
+  private findOpenCommand(commandId: string): ViewEntry | null {
+    for (let i = this.entries.length - 1; i >= 0; i--) {
+      const e = this.entries[i];
+      if (e.kind !== 'command') continue;
+      if (e.cmdState === 'run' && (commandId === '' || e.commandId === commandId)) return e;
+      return null; // 越过最近一条 command 后不再回看（避免配错更早的同类命令）
+    }
+    return null;
+  }
+
+  /** M6d：折叠 goal/change 整快照 → this.goal。clear 为墓碑；数据异常时保守不动。 */
+  private foldGoal(data: unknown): void {
+    const d = asRecord(data);
+    if (!d) return;
+    if (d['operation'] === 'clear') {
+      this.goal = null;
+      return;
+    }
+    const g = asRecord(d['goal']);
+    if (!g) return;
+    const id = strOf(g['id']);
+    if (!id) return;
+    const phaseRaw = strOf(g['phase']);
+    const phase: GoalPhase =
+      phaseRaw === 'active' || phaseRaw === 'paused' || phaseRaw === 'blocked' || phaseRaw === 'complete'
+        ? phaseRaw
+        : 'active';
+    const blocked = asRecord(g['blockedReason']);
+    this.goal = {
+      id,
+      revision: numOf(g['revision']) ?? 0,
+      objective: strOf(g['objective']),
+      phase,
+      maxGoalRounds: numOf(g['maxGoalRounds']) ?? 0,
+      ...(blocked && typeof blocked['code'] === 'string' && typeof blocked['message'] === 'string'
+        ? { blockedReason: { code: blocked['code'], message: blocked['message'] } }
+        : {}),
+      roundsStarted: numOf(d['roundsStarted']) ?? 0,
+      createdAt: numOf(d['createdAt']) ?? 0,
+      updatedAt: numOf(d['updatedAt']) ?? 0,
+    };
   }
 
   /** 应用 follow 的快照记录（records[]）；返回首个可用 seq */
@@ -156,6 +212,47 @@ export class SessionViewModel {
       this.emit();
       return true;
     }
+    // M6b：斜杠命令生命周期。command/run 记录命令，command/done 按 commandId 配对更新
+    if (t === 'command/run') {
+      const d = asRecord(data);
+      const name = d ? strOf(d['name']) : '';
+      const args = d && typeof d['args'] === 'string' ? d['args'].trim() : '';
+      const commandId = d ? strOf(d['commandId']) : '';
+      const line = name ? `/${name}${args ? ` ${args}` : ''}` : textOf(data);
+      this.push({ seq, kind: 'command', text: line, name: name || undefined, commandId, cmdState: 'run', ts });
+      this.emit();
+      return true;
+    }
+    if (t === 'command/done') {
+      const d = asRecord(data);
+      const commandId = d ? strOf(d['commandId']) : '';
+      const ok = d ? d['kind'] === 'success' : false;
+      const resultText = d && typeof d['text'] === 'string' ? d['text'] : undefined;
+      const target = this.findOpenCommand(commandId);
+      if (target) {
+        target.cmdState = 'done';
+        target.cmdOk = ok;
+        if (resultText) target.resultText = resultText;
+      } else {
+        this.push({
+          seq,
+          kind: 'command',
+          text: commandId ? `命令 ${commandId}` : '命令完成',
+          commandId,
+          cmdState: 'done',
+          cmdOk: ok,
+          ...(resultText ? { resultText } : {}),
+          ts,
+        });
+      }
+      this.emit();
+      return true;
+    }
+    if (t === 'goal/change') {
+      // M6d：goal/change 是整快照（最新一条即当前态；clear 为墓碑）——折叠进 goal 投影
+      this.foldGoal(data);
+      // 仍落一条状态行（历史可读），继续走到 status 分支
+    }
     const status = statusLineOf(t);
     if (status) {
       this.push({ seq, kind: 'status', text: status, ts });
@@ -177,8 +274,22 @@ export class SessionViewModel {
     this.entries = [];
     this.seenSeqs.clear();
     this.lastSeq = 0;
+    this.goal = null;
     this.emit();
   }
+}
+
+/** 防御式字段读取（事件 data 均来自线缆，形状随版本演化，取不到就回退默认） */
+function asRecord(v: unknown): Record<string, unknown> | null {
+  return typeof v === 'object' && v !== null && !Array.isArray(v) ? (v as Record<string, unknown>) : null;
+}
+
+function strOf(v: unknown): string {
+  return typeof v === 'string' ? v : '';
+}
+
+function numOf(v: unknown): number | null {
+  return typeof v === 'number' && Number.isFinite(v) ? v : null;
 }
 
 /** 兼容 SnapshotEvent 导入（供测试使用类型） */

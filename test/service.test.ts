@@ -135,8 +135,11 @@ test('连接 ready 且未选中时自动选最新会话并挂 follow 流', () =>
 
   conn.becomeReady([brief('a', 'A', 2), brief('b', 'B', 1)]);
   assert.equal(svc.getActiveSessionId(), 'a'); // sessions[0] = 最新
-  assert.equal(conn.mux.opened.length, 1);
-  assert.equal(conn.mux.opened[0].endpoint, 'session/follow');
+  // M6：连接就绪即挂 $events 审批流（第 1 条），随后才挂会话 follow（第 2 条）
+  assert.equal(conn.mux.opened.length, 2);
+  assert.equal(conn.mux.opened[0].endpoint, '$events');
+  assert.equal(conn.mux.opened[1].endpoint, 'session/follow');
+  assert.ok(conn.mux.followOf('a'), 'a 会话的 follow 流已挂');
 
   // 注入一条用户消息，消息列表应可见
   const stream = conn.mux.followOf('a')!;
@@ -158,7 +161,9 @@ test('切换会话后视图不串（旧会话条目不可见）', () => {
   assert.equal(svc.getActiveSessionId(), 'b');
   // 新会话没有事件 → 空列表；旧 A 的内容不出现
   assert.equal(svc.getMessages().length, 0);
-  assert.equal(conn.mux.followOf('b'), conn.mux.streamByIndex(1));
+  // b 的 follow 是本次新开的流，且与 a 的流不是同一个（hub 占第 1 条，a follow 第 2 条，b follow 第 3 条）
+  assert.equal(conn.mux.followOf('b'), conn.mux.streamByIndex(2));
+  assert.notEqual(conn.mux.followOf('b'), conn.mux.followOf('a'));
 
   // B 会话自己的事件正常出现
   conn.mux.followOf('b')!.push(eventFrame(userMsg(5, '在 B 会话说')));
@@ -177,7 +182,9 @@ test('未 ready 时 select 先记住，ready 后再挂流', () => {
 
   conn.becomeReady([brief('x', 'X', 1)]);
   assert.equal(svc.getActiveSessionId(), 'x'); // 已选中的不被自动覆盖
-  assert.equal(conn.mux.opened.length, 1);
+  // $events（审批，第 1 条）+ x 的 follow（第 2 条）
+  assert.equal(conn.mux.opened.length, 2);
+  assert.equal(conn.mux.opened[1].endpoint, 'session/follow');
 });
 
 test('submit 后先有乐观消息，回声到达后去重', async () => {

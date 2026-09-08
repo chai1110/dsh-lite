@@ -129,6 +129,26 @@ export class DshLitePanelProvider implements vscode.WebviewViewProvider {
       case 'ui/stop':
         if (this.service) void this.service.stop();
         return;
+      case 'ui/slashQuery':
+        if (this.service) {
+          void this.service.openSlash().catch((err) =>
+            this.output.appendLine(`[panel] 命令目录拉取失败: ${String(err)}`),
+          );
+        }
+        return;
+      case 'ui/slashClose':
+        this.service?.closeSlash();
+        return;
+      case 'ui/approvalAnswer':
+        if (this.service) {
+          void this.service.answerApproval(msg.eventId, msg.outcome).catch((err) =>
+            this.output.appendLine(`[panel] 审批应答失败: ${String(err)}`),
+          );
+        }
+        return;
+      case 'ui/goalAction':
+        if (this.service) void this.service.goalAction(msg.action);
+        return;
     }
   }
 
@@ -141,6 +161,7 @@ export class DshLitePanelProvider implements vscode.WebviewViewProvider {
 
   private toPanelState(snap: LiteSnapshot): PanelState {
     const svc = this.service;
+    const cmd = svc?.getCommandCatalog();
     const state: PanelState = {
       connection: snap.phase,
       sessions: snap.sessions,
@@ -148,6 +169,13 @@ export class DshLitePanelProvider implements vscode.WebviewViewProvider {
       messages: svc?.getMessages() ?? [],
       composerEnterBehavior: getConfig().composerEnterBehavior,
     };
+    if (svc) {
+      // M6：目标 / 审批 / 斜杠目录（undefined=缺省不渲染，null 见各字段语义）
+      state.goal = svc.getGoal();
+      state.approval = svc.getPendingApproval();
+      if (cmd && cmd.rows !== undefined) state.commands = cmd.rows;
+      if (cmd?.error) state.commandsError = cmd.error;
+    }
     if (snap.phase === 'error' || snap.phase === 'offline') {
       const code = snap.errorCode ?? 'err.connectionLost';
       state.error = { code, message: describeErr(code) };

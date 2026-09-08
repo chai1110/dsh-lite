@@ -5,7 +5,22 @@
 
 ## 未发布
 
-### M5 打磨（进行中）
+### M6 原生 Agent 能力：斜杠命令 / 审批 / 目标（后端契约全保留，UI 极简）
+- 契约勘误：0.1.2-rc.1 装机包实证 `commands/*`、`goals/*`、`approval/*`、`goal/change` 全部真实存在；
+  修正 M2–M4「follow 流无审批/命令帧 → 不做」的旧结论（见 docs/design/命令与审批与目标.md §1）。
+- 斜杠命令平面（M6b）：`commands/list`+`commands/execute`（扁平 agentId/line/images 信封，活体 probe 实证）；
+  输入 `/` 弹命令浮层（目录宿主拉取、本地过滤、键盘可选）；普通 Enter 提交遇 `/` 开头自动分流为命令执行；
+  `command/run`↔`command/done` 按 commandId 配对，渲染「/命令 + 状态徽标」气泡。
+- 审批应答（M6c）：连接级 `$events` 流（ready 帧带 clientId，活体实测）接 `approval/request` 瀑布；
+  composer 上方审批卡（拒绝 / 允许一次），经 `$events/result`（{clientId,eventId,outcome}）应答；
+  cancel 帧撤卡。权限预设切换 / 用户提问表单本期不做（理由见设计文档 §3/§5）。
+- 目标 dock（M6d）：`goal/change` 整快照折叠 → 输入区上方目标条（进行中/暂停/受阻/已完成 + 目标文本）；
+  暂停/继续/清除走 `goals/pause|resume|clear {agentId, ref}`（CAS）；新建目标 = `/goal <目标>` 命令。
+- UI 补欠账：会话下拉（M2 起缺 CSS）与斜杠/审批/目标新组件样式补齐。
+- 测试：viewmodel 命令配对 / 目标折叠；service 斜杠分流 / 目录 / 审批瀑布应答 / 目标动作（fake conn+mux）。
+  单测 80 通过 / 1 跳过（真实 dsh 冒烟需健康终端环境）。
+
+### M5 打磨（已完成）
 - 移除从未生效的 `dshLite.advanced.logLevel`（未发布过，不留死配置）。
 - 会话选中但快照未到时空态显示「会话加载中…」。
 - README 补功能边界（审批/变更不做的事实依据）与真实 dsh 验收说明。
