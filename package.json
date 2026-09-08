@@ -5,6 +5,10 @@
   "version": "0.0.1",
   "publisher": "chai1110",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/chai1110/dsh-vscode-lite.git"
+  },
   "engines": {
     "vscode": "^1.90.0"
   },
