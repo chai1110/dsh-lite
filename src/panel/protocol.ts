@@ -21,6 +21,8 @@ export interface PanelState {
   sessions: SessionBrief[];
   activeSessionId: string | null;
   messages: ViewMessage[];
+  /** 输入框 Enter 行为（缺省 send）。由宿主按 dshLite.composerEnterBehavior 下发（M3）。 */
+  composerEnterBehavior?: 'send' | 'newline';
   /** 仅 connection === 'error' | 'offline' 时有值（code 用 err.*，见 docs/api/connection.md §8）。 */
   error?: { code: string; message: string };
 }
@@ -32,7 +34,15 @@ export type UiMessage =
   /** UI 已挂载完成，可以接收状态。 */
   | { type: 'ui/ready' }
   /** 用户点击「重新连接」。 */
-  | { type: 'ui/refresh' };
+  | { type: 'ui/refresh' }
+  /** 用户在会话下拉中选中会话（M2）。 */
+  | { type: 'ui/selectSession'; sessionId: string }
+  /** 用户点「＋ 新建」（M3）。 */
+  | { type: 'ui/newSession' }
+  /** 用户在输入框按 Enter 发送（M3）。 */
+  | { type: 'ui/promptSubmit'; text: string }
+  /** 用户点「停止」（M3）。 */
+  | { type: 'ui/stop' };
 
 /** 宿主 → UI。 */
 export type HostMessage =

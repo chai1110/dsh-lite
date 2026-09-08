@@ -1,10 +1,10 @@
-// src/extension.ts — 扩展入口：装配输出通道、连接管理器与侧栏 provider。
-// M1：面板打开时自动拉起 dsh 并连上 remote.mux；命令仅保留 openSidebar（M3+ 再补命令）。
+// src/extension.ts — 扩展入口：装配输出通道、连接管理器、会话服务与侧栏 provider。
 import * as vscode from 'vscode';
 
 import { ConnectionManager } from './connection';
 import { getConfig } from './config';
 import { DshLitePanelProvider } from './panel/provider';
+import { SessionService } from './session/service';
 
 /** 会话 cwd 过滤根：多根工作区用 dshLite.workspaceRootIndex 选第几个根 */
 function pickWorkspaceRoot(): string | undefined {
@@ -26,22 +26,30 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
   );
 
-  // 连接管理器：日志走 OutputChannel；参数从配置读取（文档：docs/api/connection.md §7）
+  const root = pickWorkspaceRoot();
+  const cfg = getConfig();
   const conn = new ConnectionManager(
     {
       host: '127.0.0.1',
-      port: getConfig().advanced.port,
-      cwd: pickWorkspaceRoot() ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath,
-      executablePath: getConfig().executablePath || undefined,
-      autoStart: getConfig().autoStart,
-      workspaceRoot: pickWorkspaceRoot(),
+      port: cfg.advanced.port,
+      cwd: root ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath,
+      executablePath: cfg.executablePath || undefined,
+      autoStart: cfg.autoStart,
+      workspaceRoot: root,
     },
     { log: (line) => output.appendLine(line) },
   );
   context.subscriptions.push({ dispose: () => conn.dispose() });
 
-  // openOnStartup：激活后自动聚焦侧栏（聚焦会触发 resolve → 连接）
-  if (getConfig().openOnStartup) {
+  const service = new SessionService(conn, {
+    log: (line) => output.appendLine(line),
+    workspaceRoot: root,
+    followUpMode: cfg.followUpQueueMode,
+  });
+
+  provider.attachConnection(conn, service);
+
+  if (cfg.openOnStartup) {
     void vscode.commands.executeCommand(`${DshLitePanelProvider.viewId}.focus`);
   }
 
@@ -53,5 +61,5 @@ export function activate(context: vscode.ExtensionContext): void {
 }
 
 export async function deactivate(): Promise<void> {
-  // 子进程与 WS 的停止由扩展退出前的清理钩子兜底；此处显式停止一次（幂等）。
+  // 子进程与 WS 清理由 connection dispose / 父进程退出钩子兜底
 }
