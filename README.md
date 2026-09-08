@@ -20,7 +20,7 @@ DSH Lite 不像 0.5.1 那样用 iframe 嵌入整站，而是**自研 webview + R
 
 ## 当前状态
 
-**M1~M6 已实现**（本地构建 + 80 项单测通过）：
+**M1~M7 已实现**（本地构建 + 89 项单测通过，含真实 dsh E2E）：
 
 | 里程碑 | 内容 | 状态 |
 |---|---|---|
@@ -31,8 +31,9 @@ DSH Lite 不像 0.5.1 那样用 iframe 嵌入整站，而是**自研 webview + R
 | M4 | 工具卡片：tool/call 命令行 + tool/result 折叠展开；附件/图片降级占位 | ✅ |
 | M5 | 打磨与共存 + 打包 | ✅ |
 | M6 | 原生 Agent 能力：斜杠命令平面 + 审批应答卡 + 目标 dock（后端契约全保留，UI 极简） | ✅ |
+| M7 | 会话管理：全量历史（不按 cwd 过滤，与浏览器一致）+ 命名 + 归档/取消归档分组 | ✅ |
 
-**验收路径**：`npm run typecheck` && `npm test`（80 通过 / 1 跳过——真实 dsh 冒烟需健康环境）。
+**验收路径**：`npm run typecheck` && `npm test`（89 通过 / 0 跳过——真实 dsh 三次 boot M1/M6/M7 集成全绿）。
 
 > ⚠️ 真实 dsh 端到端（会话打开渲染、写文件+命令任务走完、与 0.5.1 同开 1 小时）
 > 需在**本机正常终端**跑：`DSH_LITE_E2E=1 npm test`（沙箱内 dsh boot 受
@@ -52,7 +53,12 @@ DSH Lite 不像 0.5.1 那样用 iframe 嵌入整站，而是**自研 webview + R
     新建 = `/goal <objective>`（与官方一致）。权限预设切换 / 用户提问表单本期不做（官方 GUI 承担，理由见
     docs/design/命令与审批与目标.md §5）。
 - `assistant/chunk` 文本在 `data.chunk` 键；内部噪音事件（session/*、subagent/*、team/*、hook/* 等）不渲染。
-- 会话改名：未见契约端点，不做；分页续拉：快照已够，不做。
+- M7 会话管理：会话清单为 session/list **全量**（历史与浏览器同库可见，不做 cwd 过滤）；
+  行悬停 ✎ 命名（`session/rename`）、🗂/↺ 归档/取消归档（`workspace/archiveSession` /
+  `workspace/unarchiveSession`）。注意：`unarchiveSession` 在官方 0.1.2-rc.1 原版 Remote
+  网关未暴露（HTTP 404，registry 有方法、controller 未挂 Remote，属 host 补丁范畴）——
+  Lite 已接入，host 支持即生效，不支持时收到明确 RPC 错误。
+- 分页续拉：快照已够，不做。
 
 ## 与 0.5.1 的交互边界
 

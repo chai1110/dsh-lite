@@ -135,10 +135,11 @@ test('连接 ready 且未选中时自动选最新会话并挂 follow 流', () =>
 
   conn.becomeReady([brief('a', 'A', 2), brief('b', 'B', 1)]);
   assert.equal(svc.getActiveSessionId(), 'a'); // sessions[0] = 最新
-  // M6：连接就绪即挂 $events 审批流（第 1 条），随后才挂会话 follow（第 2 条）
-  assert.equal(conn.mux.opened.length, 2);
+  // M6/M7：连接就绪流序 = $events（审批）、session/follow、workspace/follow（归档基线，一次性）
+  assert.equal(conn.mux.opened.length, 3);
   assert.equal(conn.mux.opened[0].endpoint, '$events');
   assert.equal(conn.mux.opened[1].endpoint, 'session/follow');
+  assert.equal(conn.mux.opened[2].endpoint, 'workspace/follow');
   assert.ok(conn.mux.followOf('a'), 'a 会话的 follow 流已挂');
 
   // 注入一条用户消息，消息列表应可见
@@ -161,8 +162,9 @@ test('切换会话后视图不串（旧会话条目不可见）', () => {
   assert.equal(svc.getActiveSessionId(), 'b');
   // 新会话没有事件 → 空列表；旧 A 的内容不出现
   assert.equal(svc.getMessages().length, 0);
-  // b 的 follow 是本次新开的流，且与 a 的流不是同一个（hub 占第 1 条，a follow 第 2 条，b follow 第 3 条）
-  assert.equal(conn.mux.followOf('b'), conn.mux.streamByIndex(2));
+  // b 的 follow 是本次新开的流，且与 a 的流不是同一个
+  // （hub 占第 1 条，a follow 第 2 条，workspace/follow 归档基线第 3 条，b follow 第 4 条）
+  assert.equal(conn.mux.followOf('b'), conn.mux.streamByIndex(3));
   assert.notEqual(conn.mux.followOf('b'), conn.mux.followOf('a'));
 
   // B 会话自己的事件正常出现
@@ -182,9 +184,10 @@ test('未 ready 时 select 先记住，ready 后再挂流', () => {
 
   conn.becomeReady([brief('x', 'X', 1)]);
   assert.equal(svc.getActiveSessionId(), 'x'); // 已选中的不被自动覆盖
-  // $events（审批，第 1 条）+ x 的 follow（第 2 条）
-  assert.equal(conn.mux.opened.length, 2);
+  // $events（审批，第 1 条）+ x 的 follow（第 2 条）+ workspace/follow 归档基线（第 3 条）
+  assert.equal(conn.mux.opened.length, 3);
   assert.equal(conn.mux.opened[1].endpoint, 'session/follow');
+  assert.equal(conn.mux.opened[2].endpoint, 'workspace/follow');
 });
 
 test('submit 后先有乐观消息，回声到达后去重', async () => {
@@ -264,4 +267,126 @@ test('onChange 在状态/消息变化时被通知', () => {
   assert.ok(fired >= 1);
   conn.mux.followOf('a')!.push(eventFrame(userMsg(1, 'hi')));
   assert.ok(fired >= 2);
+});
+
+// ---------- M7 会话管理：命名 / 归档 / 取消归档 / 基线同步 ----------
+
+/** 把 fetch 换成按 RPC method 返回预设值的桩；返回收尾函数与调用记录 */
+function stubUnary(handlers: Record<string, () => unknown>): { restore: () => void; calls: string[] } {
+  const calls: string[] = [];
+  const origFetch = globalThis.fetch;
+  globalThis.fetch = (async (input: string | URL | Request) => {
+    const url = String(input);
+    const method = url.split('/api/')[1];
+    calls.push(method);
+    const value = handlers[method];
+    return {
+      ok: true,
+      status: 200,
+      async json() {
+        return { result: value === undefined ? { ok: true, value: {} } : { ok: true, value: value() } };
+      },
+      async text() {
+        return '';
+      },
+    } as unknown as Response;
+  }) as typeof fetch;
+  return {
+    restore: () => {
+      globalThis.fetch = origFetch;
+    },
+    calls,
+  };
+}
+
+test('M7 renameSession 调 session/rename 并刷新清单', async () => {
+  const conn = new FakeConn();
+  const svc = makeService(conn);
+  conn.becomeReady([brief('a', '旧标题', 1)]);
+  const stub = stubUnary({
+    'session/rename': () => ({ title: '新标题', seq: 3 }),
+  });
+  try {
+    await svc.renameSession('a', '新标题');
+    assert.deepEqual(stub.calls, ['session/rename']);
+    assert.ok(conn.refreshCalls >= 1, '改名后应刷新会话清单');
+  } finally {
+    stub.restore();
+  }
+});
+
+test('M7 archiveSession 更新归档集合并刷新', async () => {
+  const conn = new FakeConn();
+  const svc = makeService(conn);
+  conn.becomeReady([brief('a', 'A', 1), brief('b', 'B', 0)]);
+  assert.equal(svc.isArchived('a'), false);
+
+  const stub = stubUnary({
+    'workspace/archiveSession': () => ({ archivedSessionIds: ['a'] }),
+  });
+  try {
+    await svc.archiveSession('a');
+    assert.equal(svc.isArchived('a'), true);
+    assert.equal(svc.isArchived('b'), false);
+    assert.deepEqual([...svc.getArchivedSessionIds()], ['a']);
+    assert.ok(conn.refreshCalls >= 1);
+  } finally {
+    stub.restore();
+  }
+});
+
+test('M7 unarchiveSession 从集合移除并刷新', async () => {
+  const conn = new FakeConn();
+  const svc = makeService(conn);
+  conn.becomeReady([brief('a', 'A', 1)]);
+  // 预置已归档态
+  await (async () => {
+    const stub = stubUnary({
+      'workspace/archiveSession': () => ({ archivedSessionIds: ['a'] }),
+    });
+    try {
+      await svc.archiveSession('a');
+    } finally {
+      stub.restore();
+    }
+  })();
+  assert.equal(svc.isArchived('a'), true);
+
+  const stub = stubUnary({
+    'workspace/unarchiveSession': () => ({ archivedSessionIds: [] }),
+  });
+  try {
+    await svc.unarchiveSession('a');
+    assert.equal(svc.isArchived('a'), false);
+    assert.deepEqual([...svc.getArchivedSessionIds()], []);
+  } finally {
+    stub.restore();
+  }
+});
+
+test('M7 workspace/follow 基线帧回填归档集合（含取消归档的会话）', () => {
+  const conn = new FakeConn();
+  const svc = makeService(conn);
+  conn.becomeReady([brief('a', 'A', 1), brief('b', 'B', 0)]);
+  // ready 后固定开 3 条流；第 3 条是 workspace/follow
+  assert.equal(conn.mux.opened[2].endpoint, 'workspace/follow');
+  const wf = conn.mux.streamByIndex(2);
+
+  wf.push({ type: 'baseline', value: { items: [], archivedSessionIds: ['b'] } });
+  assert.equal(svc.isArchived('a'), false);
+  assert.equal(svc.isArchived('b'), true);
+  assert.deepEqual([...svc.getArchivedSessionIds()], ['b']);
+});
+
+test('M7 归档流错帧/结束不抛异常（容错）', () => {
+  const conn = new FakeConn();
+  const svc = makeService(conn);
+  conn.becomeReady([brief('a', 'A', 1)]);
+  const wf = conn.mux.streamByIndex(2);
+  // 非 baseline 帧直接忽略
+  wf.push({ type: 'item', value: { archivedSessionIds: ['x'] } });
+  assert.equal(svc.isArchived('x'), false);
+  // end 帧触发 cancel，不抛
+  wf.end();
+  assert.equal(wf.cancelled, true);
 });

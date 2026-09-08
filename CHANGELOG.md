@@ -5,6 +5,27 @@
 
 ## 未发布
 
+### M7 会话管理：全量历史 + 命名 + 归档/取消归档
+- **全量历史（不再按 cwd 过滤）**：移除连接层 `filterSessionsByCwd` 过滤，会话清单改为
+  session/list 全量展示——与官方浏览器 GUI 同源（同 ~/.dsh 库），彻底解决「浏览器能查到、
+  插件查不到历史」的不一致。
+- **命名**：会话行悬停 ✎ → 内联改名 → `session/rename {request:{sessionId,title}}`
+  （中文标题 OK，probe2/集成 E2E 实证），成功后刷新清单取新 title 投影。
+- **归档/取消归档**：行悬停 🗂/↺ → `workspace/archiveSession|unarchiveSession`
+  `{request:{sessionId}}` → 以返回的 `archivedSessionIds` 全集覆盖本地集合；
+  归档=workspace 级「隐藏不删」（session/list 数据仍在，靠归档集合区分）。
+- **归档态同步**：连接就绪后开 `workspace/follow` 读基线首帧
+  （`{type:'baseline', value:{items, archivedSessionIds}}`），重连后归档集合自动恢复；
+  读完即 cancel，不留长连（5s 兜底）。
+- **UI 分组**：会话下拉分「最近会话 + 已归档(可折叠)」两区；点已归档会话自动取消归档并打开。
+- **契约实证**：`workspace/unarchiveSession` 在官方 0.1.2-rc.1 原版 Remote 网关 **404**
+  （typert host/remote-client 描述零命中；registry 服务层有该方法但 controller 未挂 Remote，
+  属 host 补丁范畴——dsh-custom-patches 的 workspace patch 同源）。dsh-lite 照常调用，
+  官方原版会收到明确 RPC 错误而非静默失败；集成 E2E 对 404 降级断言（list 仍见 a）。
+- 测试：service 层 rename/archive/unarchive 状态机 + baseline 同步（fake conn+mux，+5 用例）；
+  集成 E2E 新增 M7 真实 dsh 用例（rename 中文标题生效 + follow 基线 + archive 往返）。
+  全量 89 通过 / 0 跳过（含真实 dsh 三次 boot：M1/M6/M7 集成全绿）。
+
 ### 校验修复（M0–M6 全量走查 + 真实 dsh E2E 固化）
 - 走查修复 ①斜杠浮层死锁：`commands` 未就绪时浮层永远不出现 → 拆「拉取资格」与「可见性」，
   首击 `/` 即触发目录拉取（webview/app.tsx）。

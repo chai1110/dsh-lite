@@ -256,16 +256,43 @@
 .session-item {
   display: flex;
   align-items: center;
-  gap: 8px;
-  justify-content: space-between;
+  gap: 4px;
   width: 100%;
-  text-align: left;
   border-radius: 4px;
+  padding: 2px;
+  font-size: 12px;
 }
 
 .session-item.is-active {
   background-color: var(--vscode-list-activeSelectionBackground);
   color: var(--vscode-list-activeSelectionForeground);
+}
+
+/* M7：已归档行整体弱化 */
+.session-item.is-archived .session-item-title {
+  opacity: 0.72;
+}
+
+/* 主点击区（原来的整行 button 语义，内嵌操作按钮后拆成主区+操作区） */
+.session-item-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1 1 auto;
+  min-width: 0;
+  width: auto;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+  background: transparent;
+  border: none;
+  padding: 6px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.session-item-main:hover {
+  background-color: var(--vscode-list-hoverBackground);
 }
 
 .session-item-title {
@@ -280,6 +307,77 @@
   flex: 0 0 auto;
   color: var(--vscode-descriptionForeground);
   font-size: 11px;
+}
+
+/* M7：行操作（✎ 改名 / 🗂 归档 / ↺ 恢复），hover/激活时显现 */
+.session-row-actions {
+  flex: 0 0 auto;
+  display: inline-flex;
+  gap: 2px;
+  visibility: hidden;
+}
+
+.session-item:hover .session-row-actions,
+.session-item.is-active .session-row-actions,
+.session-item:focus-within .session-row-actions {
+  visibility: visible;
+}
+
+.row-btn {
+  background: transparent;
+  border: none;
+  color: var(--vscode-descriptionForeground);
+  font-size: 12px;
+  line-height: 1;
+  padding: 4px 3px;
+  cursor: pointer;
+  border-radius: 3px;
+}
+
+.row-btn:hover {
+  color: var(--vscode-foreground);
+  background-color: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, 0.18));
+}
+
+/* M7：行内改名输入 */
+.session-rename-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1 1 auto;
+  min-width: 0;
+  padding-right: 2px;
+}
+
+.session-rename-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  background-color: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  border: 1px solid var(--vscode-input-border, transparent);
+  border-radius: 3px;
+  padding: 3px 6px;
+  font-size: 12px;
+}
+
+/* M7：已归档区折叠开关 */
+.archived-toggle {
+  width: 100%;
+  margin-top: 4px;
+  padding: 5px 8px;
+  text-align: left;
+  background: transparent;
+  border: none;
+  border-top: 1px solid var(--vscode-panel-border);
+  color: var(--vscode-descriptionForeground);
+  font-size: 11px;
+  cursor: pointer;
+  border-radius: 0;
+  font: inherit;
+}
+
+.archived-toggle:hover {
+  color: var(--vscode-foreground);
 }
 
 /* —— M6b 斜杠命令条目 —— */

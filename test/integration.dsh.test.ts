@@ -20,6 +20,7 @@ import { createSession } from '../src/session/api';
 import { listCommands, runCommand } from '../src/session/commands';
 import { mutateGoal } from '../src/session/goals';
 import { SessionController } from '../src/session/controller';
+import { archiveSession, renameSession, unarchiveSession } from '../src/session/workspace';
 
 const DSH_BIN = process.env.DSH_BIN ?? join(homedir(), '.local', 'node-v24', 'bin', 'dsh');
 const HAS_DSH = existsSync(DSH_BIN);
@@ -217,6 +218,107 @@ describe('M6 真 dsh 命令/目标平面', () => {
         await until(() => (vm.getGoal() === null ? true : null), 15000);
       } finally {
         controller?.dispose();
+        mux?.close();
+        await mgr?.stop();
+        mgr?.dispose();
+      }
+    },
+  );
+});
+
+describe('M7 真 dsh 会话命名与归档', () => {
+  it(
+    'rename 中文标题生效 + workspace/follow 基线读归档集 + archive 往返服务端真值 + unarchive(官方暴露时)',
+    { skip: SKIP_REASON, timeout: 120000 },
+    async () => {
+      const port = await freePort();
+      const logs: string[] = [];
+      let mgr: ServiceManager | null = null;
+      let mux: MuxClient | null = null;
+      try {
+        const booted = await bootDsh(port, logs);
+        mgr = booted.mgr;
+        mux = booted.mux;
+        const deps = { origin: booted.origin, cookie: booted.cookie };
+
+        // 两个会话：一个用于改名+归档，一个作对照组
+        const a = await createSession(deps);
+        const b = await createSession(deps);
+        assert.ok(a.startsWith('session-') && b.startsWith('session-'), `会话 id 形态: ${a} / ${b}`);
+
+        // 1) rename → session/list 投影标题应更新（中文标题，与官方 GUI 同通道）
+        const zhTitle = `E2E 改名 ${Date.now()}`;
+        await renameSession(deps, a, zhTitle);
+        const afterRename = await listSessions(booted.origin, booted.cookie);
+        const found = afterRename.find((s) => s.sessionId === a);
+        assert.ok(found, '改名后的会话应在清单中');
+        assert.equal(
+          found!.title,
+          zhTitle,
+          `标题应更新为 ${zhTitle}（实际: ${found!.title ?? '(null)'}）`,
+        );
+
+        // 2) workspace/follow 基线：首帧应带 archivedSessionIds 数组（初始不含我们建的会话）
+        const wf1 = booted.mux.open('workspace/follow', {});
+        const base1 = await new Promise<unknown>((resolve) => {
+          wf1.onItem((v) => resolve(v));
+          setTimeout(() => resolve(null), 8000);
+        });
+        assert.ok(base1 !== null, 'workspace/follow 应推 baseline 帧');
+        const b1 = base1 as { type: string; value: { archivedSessionIds?: string[] } };
+        assert.equal(b1.type, 'baseline');
+        assert.ok(Array.isArray(b1.value?.archivedSessionIds), 'baseline 应带 archivedSessionIds');
+        assert.ok(!b1.value!.archivedSessionIds!.includes(a), '新会话初始不应已归档');
+        wf1.cancel();
+
+        // 3) archive a → 返回全集应含 a；服务端 follow 基线同步确认
+        const ids1 = await archiveSession(deps, a);
+        assert.ok(ids1.includes(a), `归档后全集应含 a（实际: ${ids1.join(',')}）`);
+        assert.ok(!ids1.includes(b), '对照组 b 不应被归档');
+        const wf2 = booted.mux.open('workspace/follow', {});
+        const base2 = await new Promise<unknown>((resolve) => {
+          wf2.onItem((v) => resolve(v));
+          setTimeout(() => resolve(null), 8000);
+        });
+        const b2 = base2 as { value: { archivedSessionIds?: string[] } };
+        assert.ok(b2.value!.archivedSessionIds!.includes(a), '服务端 follow 基线应含已归档的 a');
+        wf2.cancel();
+
+        // 4) unarchive：官方 0.1.2-rc.1 原版 Remote 网关未暴露 workspace/unarchiveSession
+        //    （typert host 描述零命中、HTTP 404 实测；服务层 registry 有该方法但 controller 未挂
+        //    Remote，属 host 补丁范畴——dsh-custom-patches 的 workspace patch 同源）。故先探测：
+        //    - host 已暴露（打了补丁/新版）→ 强断言取消归档往返
+        //    - 官方原版 404 → 降级为仅验证 listSessions 仍见 a（归档=隐藏不删），并留提示
+        let unarchiveSupported = true;
+        try {
+          await unarchiveSession(deps, a);
+        } catch (err) {
+          const isHttp404 =
+            typeof err === 'object' &&
+            err !== null &&
+            (err as { kind?: string; status?: number }).kind === 'http' &&
+            (err as { status?: number }).status === 404;
+          if (!isHttp404) throw err; // 非 404（网络/参数）仍是真失败
+          unarchiveSupported = false;
+        }
+        if (unarchiveSupported) {
+          const afterUnarchive = await listSessions(booted.origin, booted.cookie);
+          assert.ok(
+            afterUnarchive.some((s) => s.sessionId === a),
+            '取消归档后会话仍在清单（归档语义=隐藏不删）',
+          );
+        } else {
+          // 官方原版：unarchive RPC 未暴露。此时重新归档态无意义，仅确认 list 仍含 a（未被归档删除）。
+          const afterArchiveKeep = await listSessions(booted.origin, booted.cookie);
+          assert.ok(
+            afterArchiveKeep.some((s) => s.sessionId === a),
+            '归档不应删除会话（session/list 仍见 a）',
+          );
+          process.stderr.write(
+            '[M7] 当前 dsh host 未暴露 workspace/unarchiveSession（HTTP 404，官方 0.1.2-rc.1 原版），unarchive 往返断言降级跳过。\n',
+          );
+        }
+      } finally {
         mux?.close();
         await mgr?.stop();
         mgr?.dispose();

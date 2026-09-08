@@ -10,6 +10,8 @@ export interface SessionBrief {
   updatedAt: number;
   running: boolean;
   cwd?: string;
+  /** M7：是否已归档（派生自 workspace 归档集合，非 session/list 原生字段；仅宿主→UI 下发时有值） */
+  archived?: boolean;
 }
 
 /** 一条渲染用的消息（M2 由事件流填充；M4/M6 扩展 kind） */

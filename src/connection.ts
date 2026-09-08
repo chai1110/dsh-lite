@@ -2,7 +2,7 @@
 // 对外单一快照源（docs/api/connection.md §6/§7）；自动重连策略（L1/L2）在本文件内聚。
 import { probeService } from './process/detect';
 import { MuxClient } from './rpc/mux';
-import { listSessions, filterSessionsByCwd } from './session/list';
+import { listSessions } from './session/list';
 import { ServiceManager } from './process/manager';
 import { createProcessRunner } from './process/process';
 import type { SessionBrief, LiteErrorCode } from './model';
@@ -28,6 +28,7 @@ export interface ConnectionOptions {
   executablePath?: string;
   autoStart: boolean;
   /** 会话列表的 cwd 过滤根（工作区根；缺省不过滤） */
+  /** @deprecated M7 起列表不再按工作区过滤（显示全部历史）；保留字段仅为兼容调用方。 */
   workspaceRoot?: string;
 }
 
@@ -61,7 +62,7 @@ export class ConnectionManager {
   private reconnectBaseMs: number;
 
   constructor(
-    private opts: ConnectionOptions,
+    opts: ConnectionOptions,
     private deps: ConnectionDeps,
   ) {
     this.maxReconnectAttempts = deps.maxReconnectAttempts ?? DEFAULT_MAX_RECONNECT_ATTEMPTS;
@@ -191,12 +192,12 @@ export class ConnectionManager {
     await this.refreshSessions();
   }
 
-  /** 拉取会话清单（cwd 过滤在客户端做）。失败不致命：保留旧列表并记日志。 */
+  /** 拉取会话清单（M7 起不再按工作区 cwd 过滤：与官方浏览器一致显示全部历史会话，UI 行内标注所属目录） */
   async refreshSessions(): Promise<void> {
     if (!this.origin || !this.cookie) return;
     try {
       const all = await listSessions(this.origin, this.cookie, this.deps.fetchImpl);
-      this.set({ sessions: filterSessionsByCwd(all, this.opts.workspaceRoot) });
+      this.set({ sessions: all });
     } catch (err) {
       this.deps.log(`[session] session/list 失败: ${String(err)}`);
     }

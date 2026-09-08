@@ -113,6 +113,27 @@ export class DshLitePanelProvider implements vscode.WebviewViewProvider {
         this.output.appendLine(`[panel] 切换会话: ${msg.sessionId}`);
         this.service?.select(msg.sessionId);
         return;
+      case 'ui/sessionRename':
+        if (this.service) {
+          void this.service.renameSession(msg.sessionId, msg.title).catch((err) =>
+            this.output.appendLine(`[panel] 会话改名失败: ${String(err)}`),
+          );
+        }
+        return;
+      case 'ui/sessionArchive':
+        if (this.service) {
+          void this.service.archiveSession(msg.sessionId).catch((err) =>
+            this.output.appendLine(`[panel] 归档失败: ${String(err)}`),
+          );
+        }
+        return;
+      case 'ui/sessionUnarchive':
+        if (this.service) {
+          void this.service.unarchiveSession(msg.sessionId).catch((err) =>
+            this.output.appendLine(`[panel] 取消归档失败: ${String(err)}`),
+          );
+        }
+        return;
       case 'ui/newSession':
         if (this.service) {
           void this.service.create().catch((err) => this.output.appendLine(`[panel] 新建失败: ${String(err)}`));
@@ -164,7 +185,10 @@ export class DshLitePanelProvider implements vscode.WebviewViewProvider {
     const cmd = svc?.getCommandCatalog();
     const state: PanelState = {
       connection: snap.phase,
-      sessions: snap.sessions,
+      // M7：会话列表不再按 cwd 过滤（全部历史，与浏览器一致）；服务层维护归档集合 → 这里打 archived 标记
+      sessions: snap.sessions.map((s) =>
+        svc && svc.isArchived(s.sessionId) ? { ...s, archived: true } : s,
+      ),
       activeSessionId: svc?.getActiveSessionId() ?? null,
       messages: svc?.getMessages() ?? [],
       composerEnterBehavior: getConfig().composerEnterBehavior,

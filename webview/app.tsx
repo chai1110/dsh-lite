@@ -11,6 +11,7 @@ import {
   mismatchHint,
   type HostMessage,
   type PanelState,
+  type SessionBrief,
   type UiMessage,
   type ViewMessage,
 } from '../src/panel/protocol';
@@ -110,6 +111,10 @@ export function App(): ReactElement {
   const [state, setState] = useState<PanelState>(initialState());
   const [mismatch, setMismatch] = useState<null | 'reload' | 'upgrade'>(null);
   const [dropdown, setDropdown] = useState(false);
+  /** M7：下拉中正在改名的会话 id + 编辑值；已归档区是否展开 */
+  const [renameId, setRenameId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+  const [showArchived, setShowArchived] = useState(false);
   const [draft, setDraft] = useState('');
   const [slashIdx, setSlashIdx] = useState(0);
   /** 用户 Esc/点选等主动关过浮层 → 本次 '/' 编辑态内不再自动重拉/重开（与「尚未拉取」区分） */
@@ -340,6 +345,113 @@ export function App(): ReactElement {
     post({ type: 'ui/promptSubmit', text: `/goal ${objective}` });
   };
 
+  // —— M7 会话管理：下拉分组 + 改名/归档行操作 ——
+  const archivedSessions = state.sessions.filter((s) => s.archived);
+  const activeSessions = state.sessions.filter((s) => !s.archived);
+
+  const openSession = (s: SessionBrief): void => {
+    setDropdown(false);
+    // 打开已归档会话 = 先恢复再选中（与官方一致：归档只是收进隐藏区）
+    if (s.archived) post({ type: 'ui/sessionUnarchive', sessionId: s.sessionId });
+    post({ type: 'ui/selectSession', sessionId: s.sessionId });
+  };
+  const startRename = (s: SessionBrief): void => {
+    setRenameId(s.sessionId);
+    setRenameValue(s.title);
+  };
+  const saveRename = (): void => {
+    const sid = renameId;
+    const title = renameValue.trim();
+    setRenameId(null);
+    setRenameValue('');
+    if (sid && title) post({ type: 'ui/sessionRename', sessionId: sid, title });
+  };
+
+  const renderSessionItem = (s: SessionBrief): ReactElement => {
+    const editing = renameId === s.sessionId;
+    return (
+      <div
+        key={s.sessionId}
+        className={`session-item${s.sessionId === state.activeSessionId ? ' is-active' : ''}${
+          s.archived ? ' is-archived' : ''
+        }`}
+      >
+        <button className="session-item-main" type="button" title={s.title} onClick={() => openSession(s)}>
+          <span className="session-item-title">{s.title}</span>
+          <span className="session-item-meta">
+            {s.running ? '●' : ''}
+            {s.cwd ? ` ${s.cwd.split(/[\\/]/).pop()}` : ''}
+          </span>
+        </button>
+        {!editing ? (
+          <span className="session-row-actions">
+            <button
+              className="row-btn"
+              type="button"
+              title="重命名"
+              onClick={() => startRename(s)}
+            >
+              ✎
+            </button>
+            {s.archived ? (
+              <button
+                className="row-btn"
+                type="button"
+                title="恢复（取消归档）"
+                onClick={() => post({ type: 'ui/sessionUnarchive', sessionId: s.sessionId })}
+              >
+                ↺
+              </button>
+            ) : (
+              <button
+                className="row-btn"
+                type="button"
+                title="归档"
+                onClick={() => post({ type: 'ui/sessionArchive', sessionId: s.sessionId })}
+              >
+                🗂
+              </button>
+            )}
+          </span>
+        ) : null}
+        {editing ? (
+          <span className="session-rename-row">
+            <input
+              className="session-rename-input"
+              type="text"
+              autoFocus
+              value={renameValue}
+              placeholder="会话标题"
+              onChange={(e) => setRenameValue(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.nativeEvent.isComposing) return;
+                if (e.key === 'Enter') saveRename();
+                else if (e.key === 'Escape') {
+                  setRenameId(null);
+                  setRenameValue('');
+                }
+              }}
+            />
+            <button className="row-btn" type="button" title="保存" onClick={saveRename}>
+              ✓
+            </button>
+            <button
+              className="row-btn"
+              type="button"
+              title="取消"
+              onClick={() => {
+                setRenameId(null);
+                setRenameValue('');
+              }}
+            >
+              ✕
+            </button>
+          </span>
+        ) : null}
+      </div>
+    );
+  };
+
   return (
     <div className="app">
       <header className="topbar">
@@ -377,25 +489,21 @@ export function App(): ReactElement {
             {state.sessions.length === 0 ? (
               <div className="session-empty">暂无会话</div>
             ) : (
-              [...state.sessions].map((s) => (
-                <button
-                  key={s.sessionId}
-                  className={`session-item${s.sessionId === state.activeSessionId ? ' is-active' : ''}`}
-                  type="button"
-                  onClick={() => {
-                    setDropdown(false);
-                    post({ type: 'ui/selectSession', sessionId: s.sessionId });
-                  }}
-                >
-                  <span className="session-item-title" title={s.title}>
-                    {s.title}
-                  </span>
-                  <span className="session-item-meta">
-                    {s.running ? '●' : ''}
-                    {s.cwd ? ` ${s.cwd.split(/[\\/]/).pop()}` : ''}
-                  </span>
-                </button>
-              ))
+              <>
+                {activeSessions.map((s) => renderSessionItem(s))}
+                {archivedSessions.length > 0 ? (
+                  <>
+                    <button
+                      className="archived-toggle"
+                      type="button"
+                      onClick={() => setShowArchived((v) => !v)}
+                    >
+                      🗂 已归档（{archivedSessions.length}）{showArchived ? '▾' : '▸'}
+                    </button>
+                    {showArchived ? archivedSessions.map((s) => renderSessionItem(s)) : null}
+                  </>
+                ) : null}
+              </>
             )}
           </div>
         </>

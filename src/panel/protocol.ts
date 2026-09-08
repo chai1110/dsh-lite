@@ -45,6 +45,12 @@ export type UiMessage =
   | { type: 'ui/refresh' }
   /** 用户在会话下拉中选中会话（M2）。 */
   | { type: 'ui/selectSession'; sessionId: string }
+  /** 用户对某会话重命名（M7）：任意历史会话，不必是当前选中。 */
+  | { type: 'ui/sessionRename'; sessionId: string; title: string }
+  /** 用户归档某会话（M7）：收进已归档区（隐藏不删，与浏览器同库同步）。 */
+  | { type: 'ui/sessionArchive'; sessionId: string }
+  /** 用户取消归档某会话（M7）：恢复到当前会话区。 */
+  | { type: 'ui/sessionUnarchive'; sessionId: string }
   /** 用户点「＋ 新建」（M3）。 */
   | { type: 'ui/newSession' }
   /** 用户在输入框按 Enter 发送（M3）。宿主侧对 '/xxx' 开头的行分流为斜杠命令执行（M6b）。 */

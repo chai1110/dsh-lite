@@ -11,6 +11,11 @@ import type {
 import type { GoalRef } from './goals';
 import { mutateGoal } from './goals';
 import { listCommands, runCommand, type CommandApiDeps } from './commands';
+import {
+  archiveSession as archiveSessionRpc,
+  renameSession as renameSessionRpc,
+  unarchiveSession as unarchiveSessionRpc,
+} from './workspace';
 import { RemoteEventsHub, type ApprovalOutcome, type PendingApprovalRequest } from './events-stream';
 import { SessionController } from './controller';
 import { cancelSession, createSession, promptSession } from './api';
@@ -39,6 +44,8 @@ export class SessionService {
   /** M6c：$events 实时审批 */
   private hub: RemoteEventsHub | null = null;
   private pendingApprovals = new Map<string, PendingApprovalRequest>();
+  /** M7：已归档会话 id 集合（workspace 级；与官方浏览器同 ~/.dsh 库，重连后经 workspace/follow 基线重同步） */
+  private archivedIds = new Set<string>();
 
   constructor(
     conn: ConnectionManager,
@@ -152,6 +159,89 @@ export class SessionService {
   /** 当前命令目录（undefined=关，null=拉取中/失败，数组=就绪） */
   getCommandCatalog(): { rows: CommandRow[] | null | undefined; error: string | null } {
     return { rows: this.catalog, error: this.catalogError };
+  }
+
+  // ---------- M7 会话管理：命名 / 归档 / 取消归档 ----------
+
+  /** 已归档会话 id 集合（只读视图）。来源：workspace/follow 基线 + 每次归档操作的返回值。 */
+  getArchivedSessionIds(): ReadonlySet<string> {
+    return this.archivedIds;
+  }
+
+  /** 某会话当前是否已归档（UI 分组用）。 */
+  isArchived(sessionId: string): boolean {
+    return this.archivedIds.has(sessionId);
+  }
+
+  /** 重命名任意会话；成功后强制刷新清单（title 投影随事件已更新，这里保证 UI 立即一致）。 */
+  async renameSession(sessionId: string, title: string): Promise<void> {
+    const origin = this.conn.getOrigin();
+    const cookie = this.conn.getCookie();
+    if (!origin || !cookie) throw new Error('尚未连接');
+    await renameSessionRpc({ origin, cookie }, sessionId, title);
+    await this.conn.refreshSessions();
+  }
+
+  /** 归档会话：以返回值全集覆盖本地集合。归档≠删除（数据仍在，UI 收进已归档区）。 */
+  async archiveSession(sessionId: string): Promise<void> {
+    const origin = this.conn.getOrigin();
+    const cookie = this.conn.getCookie();
+    if (!origin || !cookie) throw new Error('尚未连接');
+    const ids = await archiveSessionRpc({ origin, cookie }, sessionId);
+    this.archivedIds = new Set(ids);
+    this.emit();
+    await this.conn.refreshSessions();
+  }
+
+  /** 取消归档会话：同上以返回值全集覆盖。 */
+  async unarchiveSession(sessionId: string): Promise<void> {
+    const origin = this.conn.getOrigin();
+    const cookie = this.conn.getCookie();
+    if (!origin || !cookie) throw new Error('尚未连接');
+    const ids = await unarchiveSessionRpc({ origin, cookie }, sessionId);
+    this.archivedIds = new Set(ids);
+    this.emit();
+    await this.conn.refreshSessions();
+  }
+
+  /** 连接就绪后同步一次归档集合（workspace/follow 基线首帧；读完即 cancel，不留长连）。 */
+  private syncArchivedIds(): void {
+    const mux = this.conn.getMux();
+    if (!mux || mux.getState() !== 'open') return;
+    let stream: ReturnType<typeof mux.open> | null = null;
+    try {
+      stream = mux.open('workspace/follow', {});
+    } catch (err) {
+      this.deps.log(`[workspace] follow 打开失败: ${String(err)}`);
+      return;
+    }
+    let settled = false;
+    const finish = (): void => {
+      if (settled) return;
+      settled = true;
+      try {
+        stream?.cancel();
+      } catch {
+        /* 忽略 */
+      }
+    };
+    stream.onItem((value) => {
+      if (settled) return;
+      const frame = value as { type?: string; value?: { archivedSessionIds?: unknown } } | undefined;
+      // 实证帧形：{type:'baseline', value:{items, archivedSessionIds}}（基线只推一次）
+      if (frame && frame.type === 'baseline' && Array.isArray(frame.value?.archivedSessionIds)) {
+        this.archivedIds = new Set(
+          frame.value!.archivedSessionIds!.filter((x): x is string => typeof x === 'string'),
+        );
+        this.emit();
+        finish();
+      }
+    });
+    stream.onError(() => finish());
+    stream.onEnd(() => finish());
+    // 兜底：基线迟迟不来也释放流，避免挂一条死流
+    const timer = setTimeout(finish, 5000);
+    timer.unref?.();
   }
 
   /** M6c：应答当前会话的待批审批。outcome=allowed-once/rejected。 */
@@ -288,6 +378,8 @@ export class SessionService {
       if (!this.activeId && snap.sessions.length > 0) {
         this.select(snap.sessions[0].sessionId);
       }
+      // 归档集合同步放最后：稳定流序 $events → session/follow → workspace/follow（一次性基线，读完即 cancel）
+      this.syncArchivedIds();
     } else if (snap.phase !== 'connecting') {
       // 断开/出错：目录与审批卡片清场。审批 Map 一并清空——
       // 若只是 WS 断（进程在），重连后网关会对新 $events 代次重推待批瀑布（幂等重建）。
