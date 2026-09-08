@@ -1,0 +1,253 @@
+{
+  "_note": "结构样本（真实抓帧瘦身：数组截断至 3 项、字符串截断至 160 字），用于 M2 渲染层开发。完整抓帧请本地重跑 tools/probe.mjs。",
+  "_captured": "2026-09-07",
+  "_dshVersion": "0.1.2-rc.1",
+  "control": {
+    "endpoint": "session/control",
+    "streamId": "s1",
+    "last": "timeout",
+    "items": [
+      {
+        "type": "item",
+        "streamId": "s1",
+        "value": {
+          "type": "baseline",
+          "value": {
+            "queues": "…",
+            "jobs": "…",
+            "projections": "…"
+          }
+        }
+      }
+    ]
+  },
+  "list": {
+    "status": 200,
+    "body": {
+      "type": "server-response",
+      "rpcId": "0d608c75-149a-4703-bd67-32d0c0949dcb",
+      "result": {
+        "ok": true,
+        "value": {
+          "items": [
+            {
+              "sessionId": "…",
+              "updatedAt": "…",
+              "running": "…",
+              "blank": "…",
+              "cwd": "…",
+              "projections": "…"
+            },
+            {
+              "sessionId": "…",
+              "updatedAt": "…",
+              "running": "…",
+              "blank": "…",
+              "cwd": "…",
+              "projections": "…"
+            },
+            {
+              "sessionId": "…",
+              "updatedAt": "…",
+              "running": "…",
+              "blank": "…",
+              "cwd": "…",
+              "projections": "…"
+            },
+            "<+26 more>"
+          ]
+        }
+      }
+    }
+  },
+  "follow": {
+    "snapshot": {
+      "type": "snapshot",
+      "header": {
+        "version": 0,
+        "id": "session-ee672aaf-adcd-457d-9189-61c5aa58d572",
+        "createdAt": 1787410260514,
+        "cwd": "/Users/csl/Documents/dsh_data",
+        "delegationDepth": 0,
+        "agentPreset": "standard"
+      },
+      "cursor": 1288679,
+      "records": [
+        {
+          "type": "event",
+          "event": {
+            "type": "user/message",
+            "seq": 1279817,
+            "time": 1788752319498,
+            "data": {
+              "content": "…",
+              "source": "…",
+              "role": "…",
+              "id": "…"
+            },
+            "surfaceOp": "append"
+          }
+        },
+        {
+          "type": "event",
+          "event": {
+            "type": "assistant/chunk",
+            "seq": 1279818,
+            "time": 1788752322456,
+            "data": {
+              "turn": "…",
+              "step": "…",
+              "chunk": "…"
+            }
+          }
+        },
+        {
+          "type": "event",
+          "event": {
+            "type": "assistant/chunk",
+            "seq": 1279819,
+            "time": 1788752322457,
+            "data": {
+              "turn": "…",
+              "step": "…",
+              "chunk": "…"
+            }
+          }
+        },
+        "<+735 more>"
+      ],
+      "hasMore": true,
+      "projections": {
+        "asOfSeq": 1288679,
+        "values": {
+          "title": "自开发插件适配",
+          "goal": null,
+          "tokenUsage": {
+            "uncachedInputTokens": 41480756,
+            "outputTokens": 1705965,
+            "cacheReadTokens": 1258117760,
+            "cacheWriteTokens": 0
+          },
+          "contextPressure": {
+            "pressureTokens": 633758,
+            "projectedTokens": 634002,
+            "contextWindow": 1048576
+          },
+          "contextBreakdown": {
+            "systemTokens": 2260,
+            "toolsTokens": 11517,
+            "messageTokens": 547153
+          },
+          "sessionStats": {
+            "turns": 266,
+            "steps": 2797,
+            "llmMs": 77209508,
+            "toolMs": 14544214,
+            "ttftMs": 43718908,
+            "ttftSteps": 2758,
+            "decodeMs": 33459849,
+            "decodeTokens": 1705965
+          },
+          "turnOutline": [
+            {
+              "turn": "…",
+              "seq": "…",
+              "prompt": "…",
+              "response": "…"
+            },
+            {
+              "turn": "…",
+              "seq": "…",
+              "prompt": "…",
+              "response": "…"
+            },
+            {
+              "turn": "…",
+              "seq": "…",
+              "prompt": "…",
+              "response": "…"
+            },
+            "<+263 more>"
+          ],
+          "agentPreset": "standard",
+          "subagentTiming": {
+            "settledMs": 0
+          },
+          "subagent": null,
+          "permissions": {
+            "options": [
+              "…",
+              "…",
+              "…"
+            ],
+            "currentValue": "danger-full-access"
+          },
+          "modelSelection": {
+            "lastUsed": {
+              "provider": "…",
+              "model": "…"
+            },
+            "next": {
+              "provider": "…",
+              "model": "…"
+            }
+          },
+          "sessionListMetadata": {
+            "blank": false,
+            "lastPromptAt": 1788761773121
+          },
+          "imageLimits": {
+            "maxImageBytes": 20971520,
+            "maxImagesPerMessage": 20,
+            "maxMessageImageBytes": 209715200,
+            "maxImagePixels": 64000000,
+            "maxImageDimension": 8192,
+            "mediaTypes": [
+              "…",
+              "…",
+              "…",
+              "<+1 more>"
+            ]
+          }
+        }
+      }
+    },
+    "eventItem": {
+      "type": "item",
+      "streamId": "s2",
+      "value": {
+        "type": "event",
+        "event": {
+          "type": "session/end-seed",
+          "seq": 1288680,
+          "time": 1788801053017,
+          "data": {}
+        }
+      }
+    }
+  },
+  "stats": {
+    "recordTypes": {
+      "event": 641,
+      "chunks": 97
+    },
+    "eventTypeCounts": {
+      "assistant/chunk": 338,
+      "tool/result": 48,
+      "assistant/message": 47,
+      "step/end": 47,
+      "step/start": 46,
+      "tool/call": 44,
+      "llm/retry": 25,
+      "llm/retry-started": 25,
+      "todo/write": 4,
+      "compaction/prune": 4,
+      "agent/inbox/spliced": 4,
+      "user/message": 3,
+      "turn/end": 3,
+      "turn/start": 2,
+      "request/header": 1
+    },
+    "surfaceOpCount": 98
+  }
+}
