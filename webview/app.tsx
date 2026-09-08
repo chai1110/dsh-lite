@@ -375,32 +375,36 @@ export function App(): ReactElement {
     submit();
   };
 
-  // 空态文案（docs/design/宿主-UI协议.md §5.2）
+  // 空态（M11 对齐 dsh web「探索未至之境」观感）：大插画 + 主标题 + 副标题 + 1-2 动作
+  // 非就绪态：标题更直白（连接/出错/断线）；就绪态：保留「探索未至之境」 + 引导文案 + 新建/选择
   let emptyTitle = '未连接';
   let emptySub: string | undefined;
-  let actionLabel: string | null = null;
+  const emptyActions: Array<{ label: string; onClick: () => void; primary?: boolean; title?: string }> = [];
   if (state.connection === 'connecting') {
-    emptyTitle = '连接中…';
+    emptyTitle = '正在连接…';
     emptySub = '正在探测并启动 dsh';
   } else if (ready) {
     if (state.activeSessionId !== null) {
       emptyTitle = '会话加载中…';
       emptySub = '正在拉取会话记录';
     } else {
-      emptyTitle = '没有可显示的会话';
-      emptySub = '从顶部下拉选择历史会话，或点 ＋ 新建';
+      emptyTitle = '探索未至之境';
+      emptySub = state.sessions.length > 0
+        ? '从顶部 ▾ 选择一个历史会话继续，或点下方「新建会话」开始'
+        : '点下方「新建会话」开始，/ 开头可执行命令，/goal 可设目标';
+      emptyActions.push({ label: '新建会话', onClick: () => post({ type: 'ui/newSession' }), primary: true, title: '新建一个空会话' });
     }
   } else if (state.connection === 'error') {
     emptyTitle = '连接出错';
     emptySub = state.error?.message ?? '未知错误';
-    actionLabel = '重连';
+    emptyActions.push({ label: '重连', onClick: () => post({ type: 'ui/refresh' }), primary: true });
   } else if (state.connection === 'offline') {
     emptyTitle = '已断开';
     emptySub = state.error?.message ?? '点击重连重新拉起 dsh';
-    actionLabel = '重连';
+    emptyActions.push({ label: '重连', onClick: () => post({ type: 'ui/refresh' }), primary: true });
   } else {
     emptySub = '点击启动开始连接';
-    actionLabel = '启动';
+    emptyActions.push({ label: '启动', onClick: () => post({ type: 'ui/refresh' }), primary: true });
   }
 
   // running：会话列表中 active 的 running 或消息尾部仍在流式
@@ -656,16 +660,35 @@ export function App(): ReactElement {
       <main className="messages" ref={scrollRef}>
         {!hasMsgs ? (
           <div className="empty">
+            <div className="empty-illu" aria-hidden="true">
+              <span className="empty-illu-main">
+                <Icon n="rocket" />
+              </span>
+              <span className="empty-illu-spark">
+                <Icon n="sparkle" />
+              </span>
+            </div>
             <div className="empty-title">{emptyTitle}</div>
             {emptySub ? <div className="empty-sub">{emptySub}</div> : null}
-            {actionLabel && state.connection !== 'connecting' ? (
-              <button
-                className="btn empty-action"
-                type="button"
-                onClick={() => post({ type: 'ui/refresh' })}
-              >
-                {actionLabel}
-              </button>
+            {emptyActions.length > 0 ? (
+              <div className="empty-actions">
+                {emptyActions.map((a) => (
+                  <button
+                    key={a.label}
+                    className={`btn empty-action${a.primary ? ' btn-primary' : ''}`}
+                    type="button"
+                    title={a.title ?? a.label}
+                    onClick={a.onClick}
+                  >
+                    {a.label}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+            {emptyActions.length === 0 && state.connection === 'connecting' ? (
+              <div className="empty-spinner" aria-label="连接中">
+                <Icon n="loading" spin />
+              </div>
             ) : null}
           </div>
         ) : (
@@ -703,8 +726,8 @@ export function App(): ReactElement {
           </div>
         ) : null}
 
-        {/* M6d 目标 dock：有 active 会话才显示 */}
-        {ready && state.activeSessionId !== null ? (
+        {/* M6d 目标 dock：有 active 会话 + 已有目标 或 正在创建时才显示（避免无目标时也占空白） */}
+        {ready && state.activeSessionId !== null && (goal || createOpen) ? (
           <div className="goal-dock">
             {goal ? (
               <>
@@ -790,23 +813,7 @@ export function App(): ReactElement {
                   取消
                 </button>
               </>
-            ) : (
-              <>
-                <span className="goal-glyph">
-                  <Icon n="target" />
-                </span>
-                <span className="goal-obj goal-obj-empty">无目标</span>
-                <button
-                  className="btn goal-btn"
-                  type="button"
-                  onClick={() => setCreateOpen(true)}
-                  title="新建目标（等价 /goal）"
-                >
-                  <Icon n="add" />
-                  <span>目标</span>
-                </button>
-              </>
-            )}
+            ) : null}
           </div>
         ) : null}
 
@@ -854,6 +861,25 @@ export function App(): ReactElement {
           </div>
         ) : null}
 
+        {/* M11 模式条：左 = 当前会话 cwd 短名；右 = 模式 pill（普通/目标等）。
+            视觉对齐 dsh web 的「dsh_data / 标准模式」行；功能性只展示当前状态。 */}
+        {ready && state.activeSessionId !== null ? (
+          <div className="composer-modebar">
+            <span className="mode-pill" title={active?.cwd ?? ''}>
+              <Icon n="root-folder" />
+              <span className="mode-pill-text">
+                {active?.cwd ? active.cwd.split(/[\\/]/).filter(Boolean).slice(-1)[0] : 'workspace'}
+              </span>
+              <Icon n="chevron-down" />
+            </span>
+            <span className="mode-pill mode-pill-select" title="当前模式">
+              <span className="mode-dot" />
+              <span className="mode-pill-text">普通</span>
+              <Icon n="chevron-down" />
+            </span>
+          </div>
+        ) : null}
+
         <textarea
           ref={inputRef}
           className="composer-input"
@@ -875,27 +901,58 @@ export function App(): ReactElement {
           }}
           onKeyDown={onKeyDown}
         />
-        <div className="composer-actions">
-          {running ? (
+
+        {/* M11 工具条：左 = + 操作菜单（新建目标 / 历史 / 停止），右 = ↑ 发送。
+            视觉对齐 dsh web 的「+ 工作区内修改 / SSH | 模型 | ↑ 发送」行；只保留我们用得到的能力。 */}
+        <div className="composer-toolbar">
+          <div className="toolbar-left">
             <button
-              className="send-btn is-stop"
+              className="tool-btn"
               type="button"
-              title="停止生成"
-              onClick={() => post({ type: 'ui/stop' })}
+              disabled={!ready || state.activeSessionId === null}
+              title="快捷操作（新建目标 / 审批 / 历史）"
+              onClick={() => {
+                // 触发主路径：把 /goal 写到输入框，唤起斜杠目录
+                setDraft((d) => (d.startsWith('/') ? d : '/goal '));
+                setTimeout(() => inputRef.current?.focus(), 0);
+              }}
             >
-              <Icon n="debug-stop" />
+              <Icon n="add" />
             </button>
-          ) : (
-            <button
-              className="send-btn btn-primary"
-              type="button"
-              disabled={!canSend}
-              title={canSend ? sendHint : '输入消息后可发送'}
-              onClick={submit}
-            >
-              <Icon n="arrow-up" />
-            </button>
-          )}
+            {!goal && ready && state.activeSessionId !== null ? (
+              <button
+                className="tool-chip"
+                type="button"
+                onClick={() => setCreateOpen(true)}
+                title="设定一个目标（/goal）"
+              >
+                <Icon n="target" />
+                <span>目标</span>
+              </button>
+            ) : null}
+          </div>
+          <div className="toolbar-right">
+            {running ? (
+              <button
+                className="send-btn is-stop"
+                type="button"
+                title="停止生成"
+                onClick={() => post({ type: 'ui/stop' })}
+              >
+                <Icon n="debug-stop" />
+              </button>
+            ) : (
+              <button
+                className="send-btn btn-primary"
+                type="button"
+                disabled={!canSend}
+                title={canSend ? sendHint : '输入消息后可发送'}
+                onClick={submit}
+              >
+                <Icon n="arrow-up" />
+              </button>
+            )}
+          </div>
         </div>
       </footer>
     </div>

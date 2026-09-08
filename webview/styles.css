@@ -44,24 +44,77 @@
   gap: 8px;
 }
 
+/* —— 空态（M11 对齐 dsh web「探索未至之境」观感）——
+   大号插画（rocket 主图 + sparkle 浮光）+ 主标题 + 副标题 + 1-2 动作；
+   纯 --vscode-* 变量，主题切换无缝；插画用大号 codicon 组合，免去外部 SVG。 */
 .empty {
   margin: auto;
   text-align: center;
   color: var(--vscode-descriptionForeground);
+  padding: 32px 16px 24px;
+  max-width: 360px;
+}
+
+.empty-illu {
+  position: relative;
+  width: 96px;
+  height: 96px;
+  margin: 0 auto 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--vscode-charts-purple, var(--vscode-descriptionForeground));
+  opacity: 0.85;
+}
+
+.empty-illu-main .codicon {
+  font-size: 64px;
+  line-height: 1;
+}
+
+.empty-illu-spark {
+  position: absolute;
+  right: 4px;
+  top: 10px;
+  font-size: 18px;
+  color: var(--vscode-charts-blue, var(--vscode-charts-purple, var(--vscode-descriptionForeground)));
+  opacity: 0.8;
+}
+
+.empty-illu-spark .codicon {
+  font-size: inherit;
 }
 
 .empty-title {
-  font-size: 14px;
-  margin-bottom: 4px;
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: var(--vscode-foreground);
 }
 
 .empty-sub {
   font-size: 12px;
   color: var(--vscode-descriptionForeground);
+  line-height: 1.5;
+  margin-bottom: 16px;
+}
+
+.empty-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
 }
 
 .empty-action {
-  margin-top: 10px;
+  min-width: 96px;
+}
+
+.empty-spinner {
+  margin-top: 12px;
+  display: inline-flex;
+  font-size: 18px;
+  color: var(--vscode-descriptionForeground);
 }
 
 /* —— 消息区（M10 左右分栏：左侧=AI 回复，右侧=我们发送）——
@@ -175,14 +228,15 @@
   min-width: 0;
 }
 
-/* 输入区：固定底部 */
+/* 输入区（M11 仿 dsh web 三行：模式条 + textarea + 工具条） */
 .composer {
   flex: 0 0 auto;
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding: 8px;
+  padding: 8px 10px 10px;
   border-top: 1px solid var(--vscode-panel-border);
+  background-color: var(--vscode-sideBar-background);
 }
 
 .composer-input {
@@ -191,16 +245,133 @@
   background-color: var(--vscode-input-background);
   color: var(--vscode-input-foreground, var(--vscode-foreground));
   border: 1px solid var(--vscode-input-border, var(--vscode-panel-border));
-  border-radius: 4px;
-  padding: 6px 8px;
+  border-radius: 8px;
+  padding: 8px 10px;
   font-family: var(--vscode-font-family);
   font-size: var(--vscode-font-size, 13px);
+  line-height: 1.5;
 }
 
-.composer-actions {
+/* 模式条：cwd + 模式 pill（视觉对齐 dsh web 的「dsh_data / 标准模式」行） */
+.composer-modebar {
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
   gap: 6px;
+  padding: 2px 2px 0;
+}
+
+.mode-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 999px;
+  font-size: 11px;
+  color: var(--vscode-foreground);
+  background-color: var(--vscode-input-background, var(--vscode-editor-background));
+  cursor: default;
+  user-select: none;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.mode-pill .codicon {
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.mode-pill-text {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mode-pill-select {
+  margin-left: auto;
+}
+
+.mode-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: var(--vscode-charts-green, var(--vscode-descriptionForeground));
+  flex: 0 0 auto;
+}
+
+/* 工具条：左 = + 操作 + 目标 chip，右 = ↑ 发送圆形主钮（视觉对齐 dsh web 的「+ 工作区内修改 / SSH | 模型 | ↑ 发送」） */
+.composer-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 2px;
+}
+
+.toolbar-left {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.toolbar-right {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
+.tool-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 50%;
+  background-color: transparent;
+  color: var(--vscode-foreground);
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.tool-btn:hover:not(:disabled) {
+  background-color: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, 0.18));
+}
+
+.tool-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.tool-btn .codicon {
+  font-size: 14px;
+}
+
+.tool-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 999px;
+  background-color: transparent;
+  color: var(--vscode-foreground);
+  cursor: pointer;
+  font-size: 11px;
+  font-family: inherit;
+}
+
+.tool-chip:hover:not(:disabled) {
+  background-color: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, 0.18));
+}
+
+.tool-chip .codicon {
+  font-size: 12px;
 }
 
 /* 按钮：贴近 VS Code 原生观感 */

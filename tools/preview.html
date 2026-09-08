@@ -98,11 +98,19 @@
     approval: null,
     commands: [{ name: 'goal', description: '设定/查看目标', hint: 'objective' }, { name: 'clear', description: '清空当前上下文' }],
   };
+  // M11 view=empty 看空态（探索未至之境大插画）；view=ready 空消息 + 无 active 会话；
+  // 其他默认 = 有会话有消息
+  const _qs = new URLSearchParams(location.search);
+  if (_qs.get('view') === 'empty') {
+    state.activeSessionId = null;
+    state.messages = [];
+    state.goal = null;
+  }
   window.addEventListener('load', () => {
     setTimeout(() => {
       window.postMessage({ type: 'host/state', state }, '*');
       // 历史视图模式：自动点开会话历史入口
-      if (new URLSearchParams(location.search).get('view') === 'history') {
+      if (_qs.get('view') === 'history') {
         setTimeout(() => { document.querySelector('.session-btn')?.click(); }, 300);
       }
     }, 200);
