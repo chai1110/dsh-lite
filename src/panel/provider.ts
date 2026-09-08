@@ -61,12 +61,14 @@ export class DshLitePanelProvider implements vscode.WebviewViewProvider {
     const viewType = webviewView.viewType;
     this.views.set(viewType, webviewView);
     const outUri = vscode.Uri.joinPath(this.extensionUri, 'out');
+    const assetsUri = vscode.Uri.joinPath(this.extensionUri, 'assets');
 
     webviewView.webview.options = {
       enableScripts: true,
-      localResourceRoots: [outUri],
+      // M9：out/=构建产物（webview bundle+css）；assets/=图标字体（codicon）等静态资源
+      localResourceRoots: [outUri, assetsUri],
     };
-    webviewView.webview.html = this.getHtml(webviewView.webview, outUri);
+    webviewView.webview.html = this.getHtml(webviewView.webview, outUri, assetsUri);
 
     webviewView.webview.onDidReceiveMessage((raw: unknown) => {
       if (typeof raw !== 'object' || raw === null || typeof (raw as UiMessage).type !== 'string') {
@@ -220,7 +222,7 @@ export class DshLitePanelProvider implements vscode.WebviewViewProvider {
     }
   }
 
-  private getHtml(webview: vscode.Webview, outUri: vscode.Uri): string {
+  private getHtml(webview: vscode.Webview, outUri: vscode.Uri, assetsUri: vscode.Uri): string {
     const nonce = randomBytes(16).toString('hex');
     const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(outUri, 'webview.js'));
 
@@ -229,10 +231,17 @@ export class DshLitePanelProvider implements vscode.WebviewViewProvider {
       ? `<link rel="stylesheet" href="${webview.asWebviewUri(cssUri)}" />`
       : '';
 
+    // M9：codicon 图标字体（assets/codicons/ 已在仓库内，缺失时优雅降级为纯文本 UI）
+    const codiconUri = vscode.Uri.joinPath(assetsUri, 'codicons', 'codicon.css');
+    const codiconLink = existsSync(codiconUri.fsPath)
+      ? `<link rel="stylesheet" href="${webview.asWebviewUri(codiconUri)}" />`
+      : '';
+
     const csp = [
       "default-src 'none'",
       `script-src ${webview.cspSource} 'nonce-${nonce}'`,
       `style-src ${webview.cspSource} 'unsafe-inline'`,
+      `font-src ${webview.cspSource}`, // M9：codicon 图标字体
       `img-src ${webview.cspSource} data:`,
     ].join('; ');
 
@@ -243,6 +252,7 @@ export class DshLitePanelProvider implements vscode.WebviewViewProvider {
     <meta http-equiv="Content-Security-Policy" content="${csp}" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>DSH Lite</title>
+    ${codiconLink}
     ${cssLink}
     <style nonce="${nonce}">
       html,

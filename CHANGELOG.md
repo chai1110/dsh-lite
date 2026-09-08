@@ -5,6 +5,24 @@
 
 ## 未发布
 
+### M9 符号与交互对齐（Codex / Claude Code 观感）：图标字体 + 历史搜索分组 + 消息行操作
+- **codicon 图标字体**：vendor `@vscode/codicons`（css+ttf → `assets/codicons/`，url query 已剔除），
+  provider 的 `localResourceRoots` 增 assets、CSP 放行 `font-src`、head 按需注入 css；
+  图标缺失时 UI 优雅降级为无图标（功能不依赖图标）。全部 emoji/文本符号 → codicon：
+  ＋→add、✎→pencil、🗂→archive、↺→history、🎯→target、▶/‖→debug-continue/pause、
+  ✕→close、✓→check、●→loading(spin)、■→debug-stop、文本「发送」→arrow-up 圆形主钮。
+- **顶栏**：改为 CC 式——左「会话标题 + chevron-down」，右侧连接状态点 + 圆形新建钮（add）。
+- **历史弹层（会话下拉）**：顶部加**搜索框**（按标题/目录过滤，Esc 关闭）；未归档会话按
+  updatedAt 分「今天 / 昨天 / 最近 7 天 / 更早」时间组（组内倒序），对齐 Codex/CC 历史面板；
+  「已归档」折叠头符号化（archive + chevron）。
+- **消息流**：文本消息行加**角色图标列**（user=account / assistant=sparkle(紫) / system=info），
+  与 CC/Codex 的角色符号观感一致；每条消息 hover 出**复制**按钮（navigator.clipboard）；
+  工具 call 前加 terminal 图标、result 卡带头部行（output 图标 + "工具结果" + hover 复制）；
+  命令气泡前加 terminal-bash 图标、完成后可复制结果。
+- **输入区**：发送=圆形主钮 arrow-up（running 时原位切换 debug-stop 停止方块），title 随
+  Enter 行为提示；斜杠浮层行补 terminal-bash 前缀。
+- 测试：typecheck + 全量单测无回归；未改宿主业务逻辑（纯 UI 层）。
+
 ### M8 双栏布局：右侧（次要）侧栏 + 右上角入口（对齐 Codex / Claude Code / 0.5.1）
 - **双容器**：`viewsContainers` 新增 `secondarySidebar` 容器 `dshLiteSecondary`
   （与既有左侧 activitybar 容器 `dshLite` 并存），视图 `dshLite.panel.secondary` 与

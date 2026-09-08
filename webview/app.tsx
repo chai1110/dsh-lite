@@ -23,6 +23,42 @@ function post(msg: UiMessage): void {
   vscode.postMessage(msg);
 }
 
+/** M9：codicon 图标（字体由 provider 注入 assets/codicons；缺失时自动退化为空，功能不依赖图标） */
+function Icon({ n, spin }: { n: string; spin?: boolean }): ReactElement {
+  return <span className={`codicon codicon-${n}${spin ? ' is-spin' : ''}`} aria-hidden="true" />;
+}
+
+/** 消息/会话文本复制（hover 行操作用） */
+function copyText(text: string): void {
+  void navigator.clipboard?.writeText(text).catch(() => undefined);
+}
+
+/** M9：按 updatedAt 分桶（对齐 Codex/CC 历史面板的时间分组语） */
+function timeBucket(ts: number): string {
+  const d = new Date(ts);
+  const now = new Date();
+  const startOfDay = (x: Date): number => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const day = 86400000;
+  const diff = startOfDay(now) - startOfDay(d);
+  if (diff < 0) return '今天';
+  if (diff < day) return '今天';
+  if (diff < 2 * day) return '昨天';
+  if (diff < 7 * day) return '最近 7 天';
+  return '更早';
+}
+
+/** 角色图标（消息流左侧标识，对齐 Codex/CC 的「角色符号」观感） */
+function roleIcon(role: string): string {
+  if (role === 'user') return 'account';
+  if (role === 'assistant') return 'sparkle';
+  return 'info';
+}
+
+function commandBadge(m: ViewMessage): { text: string; cls: string } {
+  if (m.cmdState !== 'done') return { text: '执行中', cls: 'is-run' };
+  return m.cmdOk ? { text: '成功', cls: 'is-ok' } : { text: '失败', cls: 'is-fail' };
+}
+
 /** 顶栏连接状态点的颜色，一律用 --vscode-* 变量 */
 function connectionColor(connection: string): string {
   switch (connection) {
@@ -39,20 +75,16 @@ function connectionColor(connection: string): string {
   }
 }
 
-function commandBadge(m: ViewMessage): { text: string; cls: string } {
-  if (m.cmdState !== 'done') return { text: '执行中', cls: 'is-run' };
-  return m.cmdOk ? { text: '成功', cls: 'is-ok' } : { text: '失败', cls: 'is-fail' };
-}
-
 function MsgRow({ m }: { m: ViewMessage }): ReactElement {
   const [open, setOpen] = useState(false);
   const text = m.streaming ? `${m.text}▍` : m.text;
 
-  // M4 工具条目：call=等宽命令行 / result=可折叠结果；其余按角色着色
+  // M4 工具条目：call=等宽命令行（带终端图标）/ result=可折叠结果（带复制）
   if (m.kind === 'tool') {
     if (m.toolState === 'call') {
       return (
         <div className="msg msg-tool msg-tool-call">
+          <Icon n="terminal" />
           <span className="tool-cmd">{text || '\u00A0'}</span>
         </div>
       );
@@ -60,6 +92,20 @@ function MsgRow({ m }: { m: ViewMessage }): ReactElement {
     const long = m.text.length > 300;
     return (
       <div className="msg msg-tool msg-tool-result">
+        <div className="tool-result-head">
+          <Icon n="output" />
+          <span className="tool-result-label">工具结果</span>
+          <span className="msg-actions">
+            <button
+              className="row-btn"
+              type="button"
+              title="复制结果"
+              onClick={() => copyText(m.text)}
+            >
+              <Icon n="copy" />
+            </button>
+          </span>
+        </div>
         <div className={`tool-result-body${long && !open ? ' clamp' : ''}`}>{text || '\u00A0'}</div>
         {long ? (
           <button className="btn tool-toggle" type="button" onClick={() => setOpen((v) => !v)}>
@@ -76,8 +122,21 @@ function MsgRow({ m }: { m: ViewMessage }): ReactElement {
     return (
       <div className="msg msg-command">
         <div className="cmd-line">
+          <Icon n="terminal-bash" />
           <span className="tool-cmd">{m.text}</span>
           <span className={`cmd-badge ${badge.cls}`}>{badge.text}</span>
+          {m.cmdState === 'done' && m.resultText ? (
+            <span className="msg-actions">
+              <button
+                className="row-btn"
+                type="button"
+                title="复制命令结果"
+                onClick={() => copyText(m.resultText ?? '')}
+              >
+                <Icon n="copy" />
+              </button>
+            </span>
+          ) : null}
         </div>
         {m.cmdState === 'done' && m.resultText ? (
           <div className="cmd-result">{m.resultText}</div>
@@ -88,7 +147,27 @@ function MsgRow({ m }: { m: ViewMessage }): ReactElement {
 
   const cls =
     m.role === 'user' ? 'msg-user' : m.role === 'assistant' ? 'msg-assistant' : 'msg-system';
-  return <div className={`msg ${cls}`}>{text || '\u00A0'}</div>;
+  const hasCopy = m.text.length > 0;
+  return (
+    <div className={`msg ${cls} msg-row`}>
+      <span className={`msg-role-icon role-${m.role}`}>
+        <Icon n={roleIcon(m.role)} />
+      </span>
+      <div className="msg-body">{text || '\u00A0'}</div>
+      {hasCopy ? (
+        <span className="msg-actions">
+          <button
+            className="row-btn"
+            type="button"
+            title="复制消息"
+            onClick={() => copyText(m.text)}
+          >
+            <Icon n="copy" />
+          </button>
+        </span>
+      ) : null}
+    </div>
+  );
 }
 
 /** 目标相位徽标文本 */
@@ -115,6 +194,8 @@ export function App(): ReactElement {
   const [renameId, setRenameId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const [showArchived, setShowArchived] = useState(false);
+  /** M9：历史弹层搜索词（按标题 / 目录过滤，对齐 Codex/CC 历史面板） */
+  const [historyQuery, setHistoryQuery] = useState('');
   const [draft, setDraft] = useState('');
   const [slashIdx, setSlashIdx] = useState(0);
   /** 用户 Esc/点选等主动关过浮层 → 本次 '/' 编辑态内不再自动重拉/重开（与「尚未拉取」区分） */
@@ -345,9 +426,28 @@ export function App(): ReactElement {
     post({ type: 'ui/promptSubmit', text: `/goal ${objective}` });
   };
 
-  // —— M7 会话管理：下拉分组 + 改名/归档行操作 ——
-  const archivedSessions = state.sessions.filter((s) => s.archived);
-  const activeSessions = state.sessions.filter((s) => !s.archived);
+  // —— M7/M9 会话管理：搜索 + 时间分组 + 归档折叠 ——
+  const q = historyQuery.trim().toLowerCase();
+  const matchSession = (s: SessionBrief): boolean =>
+    !q || s.title.toLowerCase().includes(q) || (s.cwd ?? '').toLowerCase().includes(q);
+  const shownSessions = state.sessions.filter(matchSession);
+  // 组内按 updatedAt 倒序（历史面板习惯：最近的在上）
+  const byRecent = (a: SessionBrief, b: SessionBrief): number => b.updatedAt - a.updatedAt;
+  const archivedSessions = shownSessions.filter((s) => s.archived).sort(byRecent);
+  const activeSessions = shownSessions.filter((s) => !s.archived).sort(byRecent);
+
+  /** M9：未归档会话按时间桶分组（今天/昨天/最近 7 天/更早），组间保序 */
+  const groups: Array<[string, SessionBrief[]]> = useMemo(() => {
+    const map = new Map<string, SessionBrief[]>();
+    for (const s of activeSessions) {
+      const k = timeBucket(s.updatedAt);
+      const arr = map.get(k);
+      if (arr) arr.push(s);
+      else map.set(k, [s]);
+    }
+    const order = ['今天', '昨天', '最近 7 天', '更早'];
+    return order.filter((k) => map.has(k)).map((k) => [k, map.get(k)!]);
+  }, [activeSessions]);
 
   const openSession = (s: SessionBrief): void => {
     setDropdown(false);
@@ -379,7 +479,7 @@ export function App(): ReactElement {
         <button className="session-item-main" type="button" title={s.title} onClick={() => openSession(s)}>
           <span className="session-item-title">{s.title}</span>
           <span className="session-item-meta">
-            {s.running ? '●' : ''}
+            {s.running ? <Icon n="loading" spin /> : null}
             {s.cwd ? ` ${s.cwd.split(/[\\/]/).pop()}` : ''}
           </span>
         </button>
@@ -391,7 +491,7 @@ export function App(): ReactElement {
               title="重命名"
               onClick={() => startRename(s)}
             >
-              ✎
+              <Icon n="pencil" />
             </button>
             {s.archived ? (
               <button
@@ -400,7 +500,7 @@ export function App(): ReactElement {
                 title="恢复（取消归档）"
                 onClick={() => post({ type: 'ui/sessionUnarchive', sessionId: s.sessionId })}
               >
-                ↺
+                <Icon n="history" />
               </button>
             ) : (
               <button
@@ -409,7 +509,7 @@ export function App(): ReactElement {
                 title="归档"
                 onClick={() => post({ type: 'ui/sessionArchive', sessionId: s.sessionId })}
               >
-                🗂
+                <Icon n="archive" />
               </button>
             )}
           </span>
@@ -433,7 +533,7 @@ export function App(): ReactElement {
               }}
             />
             <button className="row-btn" type="button" title="保存" onClick={saveRename}>
-              ✓
+              <Icon n="check" />
             </button>
             <button
               className="row-btn"
@@ -444,7 +544,7 @@ export function App(): ReactElement {
                 setRenameValue('');
               }}
             >
-              ✕
+              <Icon n="close" />
             </button>
           </span>
         ) : null}
@@ -460,37 +560,60 @@ export function App(): ReactElement {
             className="btn session-btn"
             type="button"
             disabled={!ready}
-            title="切换历史会话"
+            title={ready ? '切换历史会话' : '等待连接…'}
             onClick={() => setDropdown((v) => !v)}
           >
-            {ready ? activeTitle : '会话 ▾'}
+            <span className="session-btn-title">{ready ? activeTitle : '会话'}</span>
+            {ready ? <Icon n="chevron-down" /> : null}
           </button>
+        </div>
+        <div className="topbar-right">
+          <span
+            className="conn-dot"
+            title={`连接：${state.connection}`}
+            style={{ background: connectionColor(state.connection) }}
+          />
           <button
-            className="btn"
+            className="btn btn-icon btn-new"
             type="button"
             disabled={!ready}
             title="新建会话"
             onClick={() => post({ type: 'ui/newSession' })}
           >
-            ＋
+            <Icon n="add" />
           </button>
         </div>
-        <span
-          className="conn-dot"
-          title={state.connection}
-          style={{ background: connectionColor(state.connection) }}
-        />
       </header>
 
       {dropdown && ready ? (
         <>
           <div className="dropdown-backdrop" onClick={() => setDropdown(false)} />
           <div className="session-list">
-            {state.sessions.length === 0 ? (
-              <div className="session-empty">暂无会话</div>
+            <div className="history-search">
+              <Icon n="search" />
+              <input
+                className="history-search-input"
+                type="text"
+                autoFocus
+                placeholder="搜索历史会话…"
+                value={historyQuery}
+                onChange={(e) => setHistoryQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.nativeEvent.isComposing) return;
+                  if (e.key === 'Escape') setDropdown(false);
+                }}
+              />
+            </div>
+            {shownSessions.length === 0 ? (
+              <div className="session-empty">{q ? '无匹配会话' : '暂无会话'}</div>
             ) : (
               <>
-                {activeSessions.map((s) => renderSessionItem(s))}
+                {groups.map(([label, rows]) => (
+                  <div className="history-group" key={label}>
+                    <div className="history-group-title">{label}</div>
+                    {rows.map((s) => renderSessionItem(s))}
+                  </div>
+                ))}
                 {archivedSessions.length > 0 ? (
                   <>
                     <button
@@ -498,7 +621,9 @@ export function App(): ReactElement {
                       type="button"
                       onClick={() => setShowArchived((v) => !v)}
                     >
-                      🗂 已归档（{archivedSessions.length}）{showArchived ? '▾' : '▸'}
+                      <Icon n="archive" />
+                      <span>已归档（{archivedSessions.length}）</span>
+                      <Icon n={showArchived ? 'chevron-down' : 'chevron-right'} />
                     </button>
                     {showArchived ? archivedSessions.map((s) => renderSessionItem(s)) : null}
                   </>
@@ -564,7 +689,9 @@ export function App(): ReactElement {
           <div className="goal-dock">
             {goal ? (
               <>
-                <span className="goal-glyph">🎯</span>
+                <span className="goal-glyph">
+                  <Icon n="target" />
+                </span>
                 <span className="goal-chip">{goalPhaseLabel(goal.phase)}</span>
                 <span className="goal-obj" title={goal.objective}>
                   {goal.objective}
@@ -578,7 +705,8 @@ export function App(): ReactElement {
                       onClick={() => onGoalAction('resume')}
                       title="继续目标"
                     >
-                      ▶ 继续
+                      <Icon n="debug-continue" />
+                      <span>继续</span>
                     </button>
                   ) : null}
                   {goal.phase === 'active' ? (
@@ -589,17 +717,18 @@ export function App(): ReactElement {
                       onClick={() => onGoalAction('pause')}
                       title="暂停目标"
                     >
-                      ‖ 暂停
+                      <Icon n="debug-pause" />
+                      <span>暂停</span>
                     </button>
                   ) : null}
                   <button
-                    className="btn goal-btn"
+                    className="btn goal-btn goal-btn-icon"
                     type="button"
                     disabled={goalBusy !== null}
                     onClick={() => onGoalAction('clear')}
                     title="清除目标"
                   >
-                    ✕
+                    <Icon n="close" />
                   </button>
                 </span>
               </>
@@ -644,7 +773,9 @@ export function App(): ReactElement {
               </>
             ) : (
               <>
-                <span className="goal-glyph">🎯</span>
+                <span className="goal-glyph">
+                  <Icon n="target" />
+                </span>
                 <span className="goal-obj goal-obj-empty">无目标</span>
                 <button
                   className="btn goal-btn"
@@ -652,7 +783,8 @@ export function App(): ReactElement {
                   onClick={() => setCreateOpen(true)}
                   title="新建目标（等价 /goal）"
                 >
-                  ＋ 目标
+                  <Icon n="add" />
+                  <span>目标</span>
                 </button>
               </>
             )}
@@ -688,7 +820,10 @@ export function App(): ReactElement {
                     onMouseEnter={() => setSlashIdx(i)}
                     onClick={() => pickSlash(i)}
                   >
-                    <span className="slash-name">/{c.name}</span>
+                    <span className="slash-name">
+                      <Icon n="terminal-bash" />
+                      <span>/{c.name}</span>
+                    </span>
                     <span className="slash-desc" title={c.description}>
                       {c.description ?? ''}
                     </span>
@@ -724,17 +859,24 @@ export function App(): ReactElement {
         <div className="composer-actions">
           {running ? (
             <button
-              className="btn"
+              className="send-btn is-stop"
               type="button"
               title="停止生成"
               onClick={() => post({ type: 'ui/stop' })}
             >
-              ■ 停止
+              <Icon n="debug-stop" />
             </button>
-          ) : null}
-          <button className="btn btn-primary" type="button" disabled={!canSend} onClick={submit}>
-            发送
-          </button>
+          ) : (
+            <button
+              className="send-btn btn-primary"
+              type="button"
+              disabled={!canSend}
+              title={canSend ? sendHint : '输入消息后可发送'}
+              onClick={submit}
+            >
+              <Icon n="arrow-up" />
+            </button>
+          )}
         </div>
       </footer>
     </div>

@@ -607,3 +607,249 @@
 .slash-status.is-error {
   color: var(--vscode-errorForeground, var(--vscode-descriptionForeground));
 }
+
+/* ================= M9 符号与交互（对齐 Codex/CC 观感） =================
+   图标来自 assets/codicons（codicon 字体）；字体缺失时 UI 自动退化为纯文本/无图标，
+   功能不依赖图标。颜色仍只用 --vscode-* 变量。 */
+
+.codicon {
+  vertical-align: -0.125em;
+  font-size: inherit;
+}
+
+.codicon.is-spin {
+  display: inline-block;
+  animation: icon-spin 1s linear infinite;
+}
+
+@keyframes icon-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 顶栏：右侧操作组（连接点 + 新建圆钮），标题带 chevron */
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
+.session-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+}
+
+.session-btn-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.btn-icon {
+  background: transparent;
+  border: none;
+  color: var(--vscode-foreground);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+}
+
+.btn-icon:hover:not(:disabled) {
+  background-color: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, 0.18));
+}
+
+/* 历史弹层：搜索框 + 时间分组标题 */
+.history-search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 4px 6px;
+  color: var(--vscode-descriptionForeground);
+  border-bottom: 1px solid var(--vscode-panel-border);
+  margin-bottom: 4px;
+}
+
+.history-search-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--vscode-input-foreground, var(--vscode-foreground));
+  font: inherit;
+  font-size: 12px;
+  padding: 2px 0;
+}
+
+.history-group-title {
+  padding: 6px 8px 2px;
+  color: var(--vscode-descriptionForeground);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.history-group + .history-group {
+  margin-top: 2px;
+  border-top: 1px solid var(--vscode-panel-border);
+}
+
+.archived-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* 消息行：角色图标列 + 正文 + 悬停复制 */
+.msg-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.msg-role-icon {
+  flex: 0 0 auto;
+  width: 16px;
+  text-align: center;
+  margin-top: 1px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.msg-role-icon.role-assistant {
+  color: var(--vscode-charts-purple, var(--vscode-descriptionForeground));
+}
+
+.msg-role-icon.role-user {
+  color: var(--vscode-charts-blue, var(--vscode-descriptionForeground));
+}
+
+.msg-body {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.msg-actions {
+  flex: 0 0 auto;
+  display: inline-flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.1s ease;
+}
+
+.msg:hover .msg-actions,
+.msg:focus-within .msg-actions {
+  opacity: 1;
+}
+
+/* 工具卡：call 带终端图标（行式），result 带头部行 */
+.msg-tool-call {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.msg-tool-call > .codicon {
+  margin-top: 2px;
+  flex: 0 0 auto;
+}
+
+.tool-result-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 2px;
+}
+
+.tool-result-label {
+  flex: 1 1 auto;
+  color: var(--vscode-descriptionForeground);
+  font-size: 11px;
+}
+
+.cmd-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.cmd-line > .codicon {
+  flex: 0 0 auto;
+  opacity: 0.8;
+}
+
+/* 目标 dock 图标与按钮 */
+.goal-glyph {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  color: var(--vscode-descriptionForeground);
+}
+
+.goal-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.goal-btn-icon {
+  padding: 1px 5px;
+}
+
+/* 发送 / 停止：圆形主钮（CC 式），running 时原位切换为停止方块 */
+.send-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  background-color: var(--vscode-button-secondaryBackground, var(--vscode-button-background));
+  color: var(--vscode-button-secondaryForeground, var(--vscode-button-foreground));
+  border: 1px solid var(--vscode-panel-border);
+  cursor: pointer;
+}
+
+.send-btn .codicon {
+  font-size: 16px;
+}
+
+.send-btn.btn-primary {
+  background-color: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  border-color: transparent;
+}
+
+.send-btn.btn-primary:hover:not(:disabled) {
+  background-color: var(--vscode-button-hoverBackground);
+}
+
+.send-btn.is-stop {
+  border-radius: 6px;
+  color: var(--vscode-errorForeground, var(--vscode-foreground));
+}
+
+.send-btn.is-stop:hover:not(:disabled) {
+  background-color: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, 0.18));
+}
+
+.send-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* 斜杠行：命令名前补一个终端符号，与 CC/Codex 的命令感观一致 */
+.slash-name {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
