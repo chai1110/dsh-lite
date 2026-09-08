@@ -23,6 +23,9 @@ function post(msg: UiMessage): void {
   vscode.postMessage(msg);
 }
 
+/** M9b：宿主注入的品牌 logo URL（assets/icon.svg）；扩展未携带图标时为 undefined（UI 回退 codicon） */
+const brandLogo: string | undefined = (window as { DSH_LOGO?: string }).DSH_LOGO;
+
 /** M9：codicon 图标（字体由 provider 注入 assets/codicons；缺失时自动退化为空，功能不依赖图标） */
 function Icon({ n, spin }: { n: string; spin?: boolean }): ReactElement {
   return <span className={`codicon codicon-${n}${spin ? ' is-spin' : ''}`} aria-hidden="true" />;
@@ -52,6 +55,12 @@ function roleIcon(role: string): string {
   if (role === 'user') return 'account';
   if (role === 'assistant') return 'sparkle';
   return 'info';
+}
+
+function roleTitle(role: string): string {
+  if (role === 'user') return '你';
+  if (role === 'assistant') return '助手';
+  return '系统';
 }
 
 function commandBadge(m: ViewMessage): { text: string; cls: string } {
@@ -145,58 +154,27 @@ function MsgRow({ m }: { m: ViewMessage }): ReactElement {
     );
   }
 
-  // M9 对话观感：user 右气泡；assistant 左整宽，左 3px 紫色 accent + 小角色图标；
-  // tool/command 缩进卡片；system 灰斜体。
+  // M9b 对照 CC/Codex 校准：文本消息统一为「左列角色小图标 + 整宽文本」，无气泡/无大色块。
   const hasCopy = m.text.length > 0;
-  if (m.role === 'user') {
-    return (
-      <div className="msg msg-user">
-        <div className="msg-body">{text || '\u00A0'}</div>
-        {hasCopy ? (
-          <span className="msg-actions">
-            <button
-              className="row-btn"
-              type="button"
-              title="复制消息"
-              onClick={() => copyText(m.text)}
-            >
-              <Icon n="copy" />
-            </button>
-          </span>
-        ) : null}
-      </div>
-    );
-  }
-
-  if (m.role === 'assistant') {
-    return (
-      <div className="msg msg-assistant">
-        <span className="msg-role-icon role-assistant" title="助手">
-          <Icon n={roleIcon(m.role)} />
-        </span>
-        <div className="msg-body">{text || '\u00A0'}</div>
-        {hasCopy ? (
-          <span className="msg-actions">
-            <button
-              className="row-btn"
-              type="button"
-              title="复制消息"
-              onClick={() => copyText(m.text)}
-            >
-              <Icon n="copy" />
-            </button>
-          </span>
-        ) : null}
-      </div>
-    );
-  }
-
+  const isSystem = m.role === 'system';
   return (
-    <div className="msg msg-system">
-      <span className="msg-role-icon role-system">
+    <div className={`msg msg-${m.role}`}>
+      <span className={`msg-role-icon role-${m.role}`} title={roleTitle(m.role)}>
         <Icon n={roleIcon(m.role)} />
       </span>
       <div className="msg-body">{text || '\u00A0'}</div>
+      {!isSystem && hasCopy ? (
+        <span className="msg-actions">
+          <button
+            className="row-btn"
+            type="button"
+            title="复制消息"
+            onClick={() => copyText(m.text)}
+          >
+            <Icon n="copy" />
+          </button>
+        </span>
+      ) : null}
     </div>
   );
 }
@@ -591,10 +569,17 @@ export function App(): ReactElement {
             className="btn session-btn"
             type="button"
             disabled={!ready}
-            title={ready ? '切换历史会话' : '等待连接…'}
+            title={ready ? '点开查看全部历史会话 / 切换会话' : '等待连接…'}
             onClick={() => setDropdown((v) => !v)}
           >
-            <span className="session-btn-title">{ready ? activeTitle : '会话'}</span>
+            {brandLogo ? (
+              <img className="brand-logo" src={brandLogo} alt="DSH Lite" />
+            ) : (
+              <span className="brand-mark">
+                <Icon n="comment-discussion" />
+              </span>
+            )}
+            <span className="session-btn-title">{ready ? activeTitle : 'DSH Lite'}</span>
             {ready ? <Icon n="chevron-down" /> : null}
           </button>
         </div>

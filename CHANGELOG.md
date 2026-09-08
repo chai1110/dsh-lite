@@ -5,6 +5,19 @@
 
 ## 未发布
 
+### M9b 对照 Codex / Claude Code 界面逐项校准（顶栏收口 + 消息观感对齐）
+- **顶栏收口为「logo + 会话名」单入口**：左侧 = 品牌 logo（assets/icon.svg，host 注入
+  window.DSH_LOGO；缺失回退 codicon 占位）+ 当前会话标题 + chevron，整钮点击即展开全部历史；
+  右侧仅 连接状态点 + 圆形 ＋新建。收敛此前"标题+chevron / 连接点 / ＋"三个控件的堆叠。
+- **消息观感按 CC/Codex 共识形态校准**（去掉上一版 user 右气泡/彩色大色块）：
+  - user / assistant / system 统一为「左列 16px 极小角色图标（account / sparkle(紫) / info）+ 整宽文本」，
+    user 不反色、无气泡、无背景大块；助手用紫 sparkle 标记，系统灰斜体——与 Codex/CC 一致；
+  - 工具调用/工具结果/命令保留为**内嵌缩进小卡片**（等宽 + 彩色左竖条 + hover 复制），CC 同款；
+  - 行高 1.55、间距 8px，阅读节奏更接近 CC/Codex。
+- 依据：对 Codex（openai.chatgpt）/ Claude Code（anthropic.claude-code）安装产物做结构对照
+  （双层设计令牌 --app-*、消息无气泡整宽、composer 圆形发送钮、角色用极小 icon 而非色块）。
+- 测试：typecheck + 全量单测 0 fail（沙箱 86 过 / 3 跳过 E2E）；mock 预览截图自查（400px 侧栏）。
+
 ### M9 修复（实机核查反馈：顶栏右区消失 / 消息观感 / 右上角入口可见性）
 - **修复顶栏右区被挤出**：M9 误把 `.session-btn` 改成 `max-width:100%`，把「连接点 + 新建圆钮」
   （.topbar-right）挤到视口外；恢复 `max-width:60%` + `min-width:0`（可收缩/省略号），右侧操作组回归。

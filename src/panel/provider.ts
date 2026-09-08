@@ -237,6 +237,10 @@ export class DshLitePanelProvider implements vscode.WebviewViewProvider {
       ? `<link rel="stylesheet" href="${webview.asWebviewUri(codiconUri)}" />`
       : '';
 
+    // M9b：品牌 logo（assets/icon.svg）以全局变量下发，供顶栏显示；缺失时为空串（UI 不显示 logo）
+    const logoUri = vscode.Uri.joinPath(assetsUri, 'icon.svg');
+    const logoUrl = existsSync(logoUri.fsPath) ? webview.asWebviewUri(logoUri).toString() : '';
+
     const csp = [
       "default-src 'none'",
       `script-src ${webview.cspSource} 'nonce-${nonce}'`,
@@ -276,6 +280,7 @@ export class DshLitePanelProvider implements vscode.WebviewViewProvider {
   </head>
   <body>
     <div id="root"></div>
+    <script nonce="${nonce}">window.DSH_LOGO=${JSON.stringify(logoUrl)};</script>
     <script nonce="${nonce}" src="${scriptUri}"></script>
   </body>
 </html>`;

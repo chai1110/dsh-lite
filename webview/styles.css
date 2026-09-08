@@ -64,42 +64,33 @@
   margin-top: 10px;
 }
 
+/* —— 消息区（M9b 对照 CC/Codex 校准）——
+   两者共识形态：整宽文本 + 左侧极小角色图标，无彩色大色块/气泡；
+   user 消息不反色（同前景色）、assistant 自然色；工具/命令为内嵌小卡片。 */
 .msg {
-  padding: 6px 8px;
-  border-radius: 4px;
   white-space: pre-wrap;
   word-break: break-word;
 }
 
-/* M9 对话观感：user 右气泡（柔背景 + 右对齐 + 限宽 88%）；assistant 左整宽 + 紫色左 accent */
-.msg-user {
-  align-self: flex-end;
-  max-width: 88%;
+.msg-user,
+.msg-assistant,
+.msg-system {
   display: flex;
   align-items: flex-start;
-  gap: 6px;
-  background-color: var(--vscode-button-secondaryBackground, var(--vscode-editor-inactiveSelection-background));
-  color: var(--vscode-button-secondaryForeground, var(--vscode-foreground));
-  border-radius: 10px;
-  padding: 7px 10px;
+  gap: 8px;
+  padding: 2px 2px;
+  align-self: stretch;
+  width: 100%;
+  max-width: 100%;
 }
 
+.msg-user,
 .msg-assistant {
-  align-self: flex-start;
-  width: 100%;
-  display: flex;
-  align-items: flex-start;
-  gap: 6px;
-  padding: 4px 4px 4px 8px;
-  border-left: 3px solid var(--vscode-charts-purple, var(--vscode-panel-border));
+  color: var(--vscode-foreground);
   background-color: transparent;
 }
 
 .msg-system {
-  align-self: flex-start;
-  display: flex;
-  align-items: flex-start;
-  gap: 6px;
   color: var(--vscode-descriptionForeground);
   font-style: italic;
 }
@@ -674,6 +665,22 @@
   white-space: nowrap;
 }
 
+/* M9b：顶栏品牌 logo（img 或 codicon 回退） */
+.brand-logo {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+}
+
+.brand-mark {
+  flex: 0 0 auto;
+  display: inline-flex;
+  color: var(--vscode-descriptionForeground);
+  font-size: 14px;
+  line-height: 1;
+}
+
 .session-btn-title {
   min-width: 0;
   overflow: hidden;
@@ -737,32 +744,30 @@
   gap: 6px;
 }
 
-/* 消息行：角色图标列 + 正文 + 悬停复制 */
-.msg-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-}
-
+/* 消息行（M9b CC/Codex 校准后）：左列角色小图标 + 整宽文本 */
 .msg-role-icon {
   flex: 0 0 auto;
   width: 16px;
-  text-align: center;
   margin-top: 1px;
+  font-size: 13px;
+  line-height: 1.4;
   color: var(--vscode-descriptionForeground);
+  opacity: 0.9;
 }
 
 .msg-role-icon.role-assistant {
   color: var(--vscode-charts-purple, var(--vscode-descriptionForeground));
+  opacity: 1;
 }
 
 .msg-role-icon.role-user {
-  color: var(--vscode-charts-blue, var(--vscode-descriptionForeground));
+  color: var(--vscode-descriptionForeground);
 }
 
 .msg-body {
   flex: 1 1 auto;
   min-width: 0;
+  line-height: 1.55;
 }
 
 .msg-actions {

@@ -16,6 +16,7 @@
 <script>
   // —— mock 宿主侧 ——
   window.__ui = [];
+  window.DSH_LOGO = '/assets/icon.svg'; // mock 宿主注入的品牌 logo
   window.acquireVsCodeApi = () => ({
     postMessage: (m) => { window.__ui.push(m); },
   });
