@@ -154,14 +154,17 @@ function MsgRow({ m }: { m: ViewMessage }): ReactElement {
     );
   }
 
-  // M9b 对照 CC/Codex 校准：文本消息统一为「左列角色小图标 + 整宽文本」，无气泡/无大色块。
+  // M10 左右分栏：assistant=AI 回复在左（角色标+文本）；user=我们发送在右（角色标+气泡）。
+  // system=整行居中弱化。复制钮 hover 浮现（右侧悬浮，不占布局）。
   const hasCopy = m.text.length > 0;
   const isSystem = m.role === 'system';
   return (
     <div className={`msg msg-${m.role}`}>
-      <span className={`msg-role-icon role-${m.role}`} title={roleTitle(m.role)}>
-        <Icon n={roleIcon(m.role)} />
-      </span>
+      {!isSystem ? (
+        <span className={`msg-role-icon role-${m.role}`} title={roleTitle(m.role)}>
+          <Icon n={roleIcon(m.role)} />
+        </span>
+      ) : null}
       <div className="msg-body">{text || '\u00A0'}</div>
       {!isSystem && hasCopy ? (
         <span className="msg-actions">

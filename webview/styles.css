@@ -64,35 +64,70 @@
   margin-top: 10px;
 }
 
-/* —— 消息区（M9b 对照 CC/Codex 校准）——
-   两者共识形态：整宽文本 + 左侧极小角色图标，无彩色大色块/气泡；
-   user 消息不反色（同前景色）、assistant 自然色；工具/命令为内嵌小卡片。 */
+/* —— 消息区（M10 左右分栏：左侧=AI 回复，右侧=我们发送）——
+   assistant：左对齐，角色小徽标 + 扁平文本（自然色，不铺色块）；
+   user：右对齐气泡（浅底+细边，右下小尾），一眼可辨「我们发的」；
+   system：居中弱化（连接/状态提示）；工具/命令为内嵌小卡片归入左侧助手流。 */
 .msg {
   white-space: pre-wrap;
   word-break: break-word;
 }
 
-.msg-user,
 .msg-assistant,
-.msg-system {
+.msg-user {
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  padding: 2px 2px;
-  align-self: stretch;
   width: 100%;
   max-width: 100%;
-}
-
-.msg-user,
-.msg-assistant {
+  padding: 2px 0;
   color: var(--vscode-foreground);
-  background-color: transparent;
 }
 
+/* assistant：正向行，图标在左、文本占满、复制钮在行尾（预留细槽，文字不与其重叠） */
+.msg-assistant {
+  flex-direction: row;
+  justify-content: flex-start;
+}
+
+/* user：反向行 → 图标贴最右、气泡靠左挨着图标、复制钮在气泡左缘外侧；
+   视觉即「右侧=我们发的」，气泡与图标之间不留空隙 */
+.msg-user {
+  flex-direction: row-reverse;
+  justify-content: flex-start;
+}
+
+/* 文本体：assistant 占满图标右侧剩余宽度；user 收窄为右侧气泡 */
+.msg-assistant .msg-body {
+  flex: 1 1 auto;
+  min-width: 0;
+  line-height: 1.55;
+}
+
+.msg-user .msg-body {
+  flex: 0 1 auto;
+  max-width: 88%;
+  min-width: 0;
+  padding: 6px 10px;
+  border-radius: 10px 10px 2px 10px;
+  background-color: var(
+    --vscode-chat-requestBackground,
+    var(--vscode-input-background, var(--vscode-editor-background))
+  );
+  border: 1px solid var(--vscode-chat-requestBorder, var(--vscode-panel-border, transparent));
+  color: var(--vscode-foreground);
+  line-height: 1.5;
+}
+
+/* 系统/状态消息：整行居中弱化，不带图标与气泡 */
 .msg-system {
+  align-self: center;
+  max-width: 92%;
+  padding: 2px 10px;
   color: var(--vscode-descriptionForeground);
+  font-size: 12px;
   font-style: italic;
+  text-align: center;
 }
 
 /* M4 工具卡片：call=等宽命令行，result=可折叠结果；缩进与浅边 */
@@ -665,12 +700,18 @@
   white-space: nowrap;
 }
 
-/* M9b：顶栏品牌 logo（img 或 codicon 回退） */
+/* M9b：顶栏品牌 logo（img 或 codicon 回退）。
+   icon.svg 为深色字形：浅色主题原样显示；深色主题（body.vscode-dark）反白，保证两侧主题都可见 */
 .brand-logo {
   flex: 0 0 auto;
   width: 18px;
   height: 18px;
   border-radius: 4px;
+}
+
+body.vscode-dark .brand-logo,
+body.vscode-high-contrast .brand-logo {
+  filter: invert(1);
 }
 
 .brand-mark {
@@ -744,20 +785,27 @@
   gap: 6px;
 }
 
-/* 消息行（M9b CC/Codex 校准后）：左列角色小图标 + 整宽文本 */
+/* 消息行（M10 左右分栏后）：角色徽标统一 18px 圆底小图标；
+   assistant 徽标靠左领起文本；user 行反向排列 → 徽标贴右、气泡在其左；
+   复制钮保留细槽（文字不会与其重叠），hover 浮现 */
 .msg-role-icon {
   flex: 0 0 auto;
-  width: 16px;
+  width: 18px;
+  height: 18px;
   margin-top: 1px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
   font-size: 13px;
-  line-height: 1.4;
+  line-height: 1;
   color: var(--vscode-descriptionForeground);
-  opacity: 0.9;
+  background-color: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, 0.18));
 }
 
 .msg-role-icon.role-assistant {
-  color: var(--vscode-charts-purple, var(--vscode-descriptionForeground));
-  opacity: 1;
+  color: var(--vscode-charts-purple, var(--vscode-foreground));
+  background-color: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, 0.18));
 }
 
 .msg-role-icon.role-user {
@@ -765,7 +813,6 @@
 }
 
 .msg-body {
-  flex: 1 1 auto;
   min-width: 0;
   line-height: 1.55;
 }
@@ -778,9 +825,20 @@
   transition: opacity 0.1s ease;
 }
 
+/* hover 复制钮：不绝对定位，仅切换透明度（位置不变，避免挤压/跳版） */
 .msg:hover .msg-actions,
 .msg:focus-within .msg-actions {
   opacity: 1;
+}
+
+.msg-assistant .msg-actions {
+  align-self: flex-start;
+  margin-top: 2px;
+}
+
+.msg-user .msg-actions {
+  align-self: flex-start;
+  margin-top: 2px;
 }
 
 /* 工具卡：call 带终端图标（行式），result 带头部行 */

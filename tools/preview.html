@@ -7,11 +7,52 @@
 <link rel="stylesheet" href="../assets/codicons/codicon.css" />
 <link rel="stylesheet" href="../out/webview.css" />
 <style>
-  html, body { height: 100%; margin: 0; background: #1e1e1e; }
+  /* mock 宿主：近似 VS Code 默认深色主题的 --vscode-* 变量，保证预览与真实一致 */
+  html, body { height: 100%; margin: 0; }
   #root { height: 100%; }
+  body.vscode-dark {
+    --vscode-sideBar-background: #252526; --vscode-foreground: #cccccc;
+    --vscode-descriptionForeground: #9d9d9d; --vscode-editor-background: #1e1e1e;
+    --vscode-panel-border: #3c3c3c; --vscode-input-background: #3c3c3c;
+    --vscode-input-foreground: #cccccc; --vscode-input-border: #3c3c3c;
+    --vscode-button-background: #0e639c; --vscode-button-foreground: #ffffff;
+    --vscode-button-hoverBackground: #1177bb;
+    --vscode-button-secondaryBackground: #3a3d41; --vscode-button-secondaryForeground: #ffffff;
+    --vscode-button-secondaryHoverBackground: #45494e;
+    --vscode-editorWidget-background: #252526; --vscode-widget-border: #454545;
+    --vscode-list-hoverBackground: #2a2d2e; --vscode-list-activeSelectionBackground: #094771;
+    --vscode-list-activeSelectionForeground: #ffffff; --vscode-badge-background: #4d4d4d;
+    --vscode-badge-foreground: #ffffff; --vscode-toolbar-hoverBackground: rgba(90,93,94,.31);
+    --vscode-charts-green: #89d185; --vscode-charts-red: #f14c4c; --vscode-charts-yellow: #cca700;
+    --vscode-charts-blue: #75beff; --vscode-charts-purple: #b180d7;
+    --vscode-errorForeground: #f48771;
+    --vscode-inputValidation-warningBackground: #352a05; --vscode-inputValidation-warningBorder: #b89500;
+    --vscode-chat-requestBackground: #2f3640; --vscode-chat-requestBorder: #454545;
+    background: #1e1e1e; color: #cccccc;
+  }
+  body.vscode-light {
+    --vscode-sideBar-background: #f3f3f3; --vscode-foreground: #1f1f1f;
+    --vscode-descriptionForeground: #616161; --vscode-editor-background: #ffffff;
+    --vscode-panel-border: #e0e0e0; --vscode-input-background: #ffffff;
+    --vscode-input-foreground: #1f1f1f; --vscode-input-border: #d4d4d4;
+    --vscode-button-background: #007acc; --vscode-button-foreground: #ffffff;
+    --vscode-button-hoverBackground: #0062a3;
+    --vscode-button-secondaryBackground: #5a5d61; --vscode-button-secondaryForeground: #ffffff;
+    --vscode-button-secondaryHoverBackground: #6e7175;
+    --vscode-editorWidget-background: #f3f3f3; --vscode-widget-border: #c8c8c8;
+    --vscode-list-hoverBackground: #e8e8e8; --vscode-list-activeSelectionBackground: #0060c0;
+    --vscode-list-activeSelectionForeground: #ffffff; --vscode-badge-background: #c4c4c4;
+    --vscode-badge-foreground: #333333; --vscode-toolbar-hoverBackground: rgba(0,0,0,.1);
+    --vscode-charts-green: #388a34; --vscode-charts-red: #a1260d; --vscode-charts-yellow: #b89500;
+    --vscode-charts-blue: #007acc; --vscode-charts-purple: #652d90;
+    --vscode-errorForeground: #a1260d;
+    --vscode-inputValidation-warningBackground: #fff6d5; --vscode-inputValidation-warningBorder: #b89500;
+    --vscode-chat-requestBackground: #e9e9e9; --vscode-chat-requestBorder: #d4d4d4;
+    background: #f3f3f3; color: #1f1f1f;
+  }
 </style>
 </head>
-<body>
+<body class="vscode-dark">
 <div id="root"></div>
 <script>
   // —— mock 宿主侧 ——

@@ -25,14 +25,20 @@
         {
           "id": "dshLite",
           "title": "DSH Lite",
-          "icon": "assets/icon.svg"
+          "icon": {
+            "light": "assets/icon-light.svg",
+            "dark": "assets/icon-dark.svg"
+          }
         }
       ],
       "secondarySidebar": [
         {
           "id": "dshLiteSecondary",
           "title": "DSH Lite",
-          "icon": "assets/icon.svg"
+          "icon": {
+            "light": "assets/icon-light.svg",
+            "dark": "assets/icon-dark.svg"
+          }
         }
       ]
     },
@@ -62,7 +68,10 @@
         "command": "dshLite.openChat",
         "title": "在右侧打开对话",
         "category": "DSH Lite",
-        "icon": "assets/icon.svg"
+        "icon": {
+          "light": "assets/icon-light.svg",
+          "dark": "assets/icon-dark.svg"
+        }
       }
     ],
     "menus": {
