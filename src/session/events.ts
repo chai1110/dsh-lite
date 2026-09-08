@@ -34,13 +34,17 @@ export function textOf(data: unknown): string {
   }
   const content = d['content'];
   if (Array.isArray(content)) {
+    // content 是块数组（Claude 风格）：text 块取文本；image/其它带 type 无文本块 → 占位说明（M4 §2.2）
     const parts: string[] = [];
     for (const c of content) {
-      if (typeof c === 'string') parts.push(c);
-      else if (c && typeof c === 'object') {
+      if (typeof c === 'string') {
+        parts.push(c);
+      } else if (c && typeof c === 'object') {
         const o = c as Record<string, unknown>;
-        if (o['text'] !== undefined) parts.push(String(o['text']));
-        else if (o['type'] === 'text' && o['text'] !== undefined) parts.push(String(o['text']));
+        if (typeof o['text'] === 'string' && o['text']) parts.push(o['text']);
+        else if (o['type'] === 'image') parts.push('[图片附件]');
+        else if (typeof o['type'] === 'string') parts.push(`[附件:${o['type']}]`);
+        else parts.push(String(o['text'] ?? ''));
       }
     }
     if (parts.length > 0) return parts.join('');

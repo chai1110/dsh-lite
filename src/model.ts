@@ -19,6 +19,8 @@ export interface ViewMessage {
   streaming?: boolean;
   /** 工具调用等附加渲染块由 M2+ 视图模型按需扩展；先保留扩展位 */
   kind?: 'text' | 'tool' | 'approval' | 'attachment';
+  /** kind === 'tool' 时的阶段（M4：call 展示命令行，result 可折叠展开） */
+  toolState?: 'call' | 'result';
 }
 
 /** 连接层对外错误 code（err.* 全集见 docs/api/connection.md §8） */

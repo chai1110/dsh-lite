@@ -30,6 +30,9 @@ const label = (s: string): string => {
   return seg[seg.length - 1] ?? s;
 };
 
+/** tool/result 文本存储上限（M4 §2.1；UI 侧折叠展示，存储全文无必要） */
+const TOOL_RESULT_CAP = 2000;
+
 export class SessionViewModel {
   private entries: ViewEntry[] = [];
   private seenSeqs = new Set<number>();
@@ -141,7 +144,8 @@ export class SessionViewModel {
     }
     if (t === 'tool/result') {
       const txt = textOf(data);
-      const short = txt.length > 300 ? `${txt.slice(0, 300)}…` : txt;
+      // M4 §2.1：上限 2000 字，防大结果每次下发撑爆 postMessage
+      const short = txt.length > TOOL_RESULT_CAP ? `${txt.slice(0, TOOL_RESULT_CAP)}…(已截断)` : txt;
       this.push({ seq, kind: 'tool', name: label(t), text: short, toolState: 'result', ts });
       this.emit();
       return true;

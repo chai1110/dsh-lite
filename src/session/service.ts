@@ -162,6 +162,10 @@ function entryToMessage(e: ViewEntry): ViewMessage {
     text: e.text,
     ...(e.streaming ? { streaming: true } : {}),
   };
-  if (e.kind === 'tool' && e.toolState) base.kind = e.toolState === 'call' ? 'tool' : 'attachment';
+  // M4：tool 条目统一 kind=tool，phase 用 toolState 表达（call=命令行 / result=可折叠结果）
+  if (e.kind === 'tool') {
+    base.kind = 'tool';
+    if (e.toolState) base.toolState = e.toolState;
+  }
   return base;
 }

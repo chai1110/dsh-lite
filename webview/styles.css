@@ -85,6 +85,47 @@
   font-style: italic;
 }
 
+/* M4 工具卡片：call=等宽命令行，result=可折叠结果 */
+.msg-tool {
+  background-color: var(--vscode-editor-background);
+  border: 1px dashed var(--vscode-panel-border);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 12px;
+  max-width: 100%;
+}
+
+.msg-tool-call {
+  border-style: solid;
+}
+
+.tool-cmd {
+  font-family: var(--vscode-editor-font-family, monospace);
+  white-space: pre-wrap;
+  word-break: break-all;
+  color: var(--vscode-foreground);
+}
+
+.tool-result-body {
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--vscode-foreground);
+}
+
+/* 折叠态：最多显示 6 行 */
+.tool-result-body.clamp {
+  display: -webkit-box;
+  -webkit-line-clamp: 6;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.tool-toggle {
+  margin-top: 4px;
+  padding: 1px 8px;
+  min-width: 0;
+}
+
 /* 输入区：固定底部 */
 .composer {
   flex: 0 0 auto;

@@ -39,9 +39,33 @@ function connectionColor(connection: string): string {
 }
 
 function MsgRow({ m }: { m: ViewMessage }): ReactElement {
+  const [open, setOpen] = useState(false);
+  const text = m.streaming ? `${m.text}▍` : m.text;
+
+  // M4 工具条目：call=等宽命令行 / result=可折叠结果；其余按角色着色
+  if (m.kind === 'tool') {
+    if (m.toolState === 'call') {
+      return (
+        <div className="msg msg-tool msg-tool-call">
+          <span className="tool-cmd">{text || '\u00A0'}</span>
+        </div>
+      );
+    }
+    const long = m.text.length > 300;
+    return (
+      <div className="msg msg-tool msg-tool-result">
+        <div className={`tool-result-body${long && !open ? ' clamp' : ''}`}>{text || '\u00A0'}</div>
+        {long ? (
+          <button className="btn tool-toggle" type="button" onClick={() => setOpen((v) => !v)}>
+            {open ? '收起' : '展开'}
+          </button>
+        ) : null}
+      </div>
+    );
+  }
+
   const cls =
     m.role === 'user' ? 'msg-user' : m.role === 'assistant' ? 'msg-assistant' : 'msg-system';
-  const text = m.streaming ? `${m.text}▍` : m.text;
   return <div className={`msg ${cls}`}>{text || '\u00A0'}</div>;
 }
 

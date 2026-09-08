@@ -105,13 +105,33 @@ test('tool/call 与 tool/result 渲染为 tool 条目', () => {
   assert.ok(s.entries[1].text.includes('file1'));
 });
 
-test('tool/result 超长结果截断到 300 字符', () => {
+test('tool/result 超长结果截断到 2000 字并加标记', () => {
   const vm = new SessionViewModel();
-  const long = 'x'.repeat(500);
+  const long = 'x'.repeat(2200);
   vm.applyEvent(evt({ type: 'tool/result', seq: 1, data: { text: long } }));
   const text = vm.getState().entries[0].text;
-  assert.equal(text.length, 301); // 300 + …
-  assert.ok(text.endsWith('…'));
+  assert.equal(text.length, 2000 + '…(已截断)'.length);
+  assert.ok(text.endsWith('(已截断)'));
+  assert.ok(text.startsWith('x'.repeat(2000)));
+});
+
+test('user/message 的 content 块：文本拼接 + 图片块降级占位（M4）', () => {
+  const vm = new SessionViewModel();
+  vm.applyEvent(
+    evt({
+      type: 'user/message',
+      seq: 1,
+      data: {
+        content: [
+          { type: 'text', text: '看图' },
+          { type: 'image', source: { type: 'url', url: 'http://x/1.png' } },
+          { type: 'file', name: 'a.txt' },
+        ],
+      },
+    }),
+  );
+  const s = vm.getState();
+  assert.equal(s.entries[0].text, '看图[图片附件][附件:file]');
 });
 
 test('已知状态事件 → 中文状态行', () => {
