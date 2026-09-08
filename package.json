@@ -92,17 +92,6 @@
           "type": "number",
           "default": 3082,
           "description": "固定监听端口；被占用时自动回退到空闲端口（M1 生效）。"
-        },
-        "dshLite.advanced.logLevel": {
-          "type": "string",
-          "enum": [
-            "error",
-            "warn",
-            "info",
-            "debug"
-          ],
-          "default": "info",
-          "description": "日志级别（M5 生效）。"
         }
       }
     }

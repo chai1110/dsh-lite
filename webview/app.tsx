@@ -137,8 +137,14 @@ export function App(): ReactElement {
     emptyTitle = '连接中…';
     emptySub = '正在探测并启动 dsh';
   } else if (conn === 'ready') {
-    emptyTitle = '没有可显示的会话';
-    emptySub = '从顶部下拉选择历史会话，或点 ＋ 新建';
+    if (state.activeSessionId !== null) {
+      // 会话已选中但 follow 快照还没到（首帧前）
+      emptyTitle = '会话加载中…';
+      emptySub = '正在拉取会话记录';
+    } else {
+      emptyTitle = '没有可显示的会话';
+      emptySub = '从顶部下拉选择历史会话，或点 ＋ 新建';
+    }
   } else if (conn === 'error') {
     emptyTitle = '连接出错';
     emptySub = state.error?.message ?? '未知错误';

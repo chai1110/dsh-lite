@@ -5,12 +5,10 @@ import * as vscode from 'vscode';
 
 export type ComposerEnterBehavior = 'send' | 'newline';
 export type FollowUpQueueMode = 'queue' | 'steer';
-export type LogLevel = 'error' | 'warn' | 'info' | 'debug';
 
 export interface AdvancedConfig {
   /** 固定监听端口，被占用时由连接层回退（M1）。 */
   port: number;
-  logLevel: LogLevel;
 }
 
 export interface DshLiteConfig {
@@ -37,7 +35,6 @@ export function getConfig(): DshLiteConfig {
     workspaceRootIndex: cfg.get<number>('workspaceRootIndex', 0),
     advanced: {
       port: cfg.get<number>('advanced.port', 3082),
-      logLevel: cfg.get<LogLevel>('advanced.logLevel', 'info'),
     },
   };
 }

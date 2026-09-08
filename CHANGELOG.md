@@ -5,6 +5,42 @@
 
 ## 未发布
 
+### M5 打磨（进行中）
+- 移除从未生效的 `dshLite.advanced.logLevel`（未发布过，不留死配置）。
+- 会话选中但快照未到时空态显示「会话加载中…」。
+- README 补功能边界（审批/变更不做的事实依据）与真实 dsh 验收说明。
+
+### M4 工具 / 审批 / 变更
+- 依据 0.1.2-rc.1 真实抓帧定范围：follow 流**无审批帧、无文件变更帧**（本机
+  danger-full-access）→ 审批/变更卡片明确不做；只做有真实帧支撑的部分。
+- 工具卡片：`tool/call` 等宽命令行；`tool/result` 折叠/展开（存储上限 2000 字）。
+- content 块解析：text 拼接；image → `[图片附件]`；其它带 type 块 → `[附件:<type>]`。
+- `ViewMessage` 增 `toolState`，工具条目统一 `kind:'tool'`。
+
+### M3 写入（prompt / cancel / create）
+- `session/create|prompt|cancel` 一元 RPC（字段按契约 + 防御式取值）。
+- 发送乐观气泡 + 回声去重；运行中再发默认排队（`dshLite.followUpQueueMode`）。
+- 输入框 Enter 行为可配置（`dshLite.composerEnterBehavior`：send / newline）；
+  IME 组合输入不误触发送。
+- 已选中会话优先挂 follow 流；ready 自动选最新会话。
+- 未实现并记档：改名（无契约端点）、`/` 斜杠提示（无命令清单）、错误 toast（宿主日志）。
+
+### M2 只读渲染
+- `session/follow` 流 → 视图模型：15 类事件映射（依据真实抓帧 eventTypeCounts）。
+- shadow 折叠：`sourceEventSeqs` 折叠被编辑重发覆盖的旧消息（含整段回合替换）。
+- 流式尾巴：`assistant/chunk`（文本在 `data.chunk` 键）累积 → `assistant/message` 前缀升级定稿。
+- `session/*` 生命周期元事件静默；未知事件折叠为状态行；seq 幂等去重。
+- 会话下拉切换不串流（每个会话独立 controller + 视图模型）。
+- 视图模型/服务单测（fake mux 注入事件帧，无网络依赖）。
+
+### M1 连接层
+- 服务探测（空闲/同版本/其它/无响应）+ 自起 dsh（默认 3082，被占自动回退空闲端口），
+  复用了 0.5.1 的探测/端口回退逻辑但**不复用外部实例**（决策 A）。
+- 启动失败全路径清理子进程（SIGKILL，防孤儿/凭证锁残留）。
+- 令牌换 cookie → `/api/remote.mux` WS 建连（ws@8，autoPong 匹配心跳）。
+- L1（进程死→offline 不自动拉起）/ L2（WS 掉→1+2+4+8+16s 退避自动重连）双层断线策略。
+- `session/list` 会话清单（按 cwd 过滤）+ 状态条/错误码文案。
+
 ## 0.0.1（M0 脚手架）
 
 > 阶段：M0　状态：已交付　范围：仅搭骨架，不接 DSH。
@@ -20,7 +56,7 @@
 - esbuild 双 bundle 构建：`src/extension.ts` → `out/extension.js`（node/cjs）、
   `webview/index.tsx` → `out/webview.js`（browser/iife，打包 React），支持 `--watch` 与 `--test`。
 - 协议单测 `test/protocol.test.ts`（node:test + node:assert/strict）。
-- 配置项 `dshLite.*` 共 8 个一次性声明（声明不等于实现），与 0.5.1 的 ID / 配置前缀完全独立。
+- 配置项 `dshLite.*` 共 8 个一次性声明（M5 移除从未生效的 logLevel 后为 7 个）（声明不等于实现），与 0.5.1 的 ID / 配置前缀完全独立。
 - 文档底座：README、CHANGELOG、`.gitignore`、`.vscodeignore`、`assets/icon.svg`。
 - 与已装 dsh-vscode 0.5.1 同时启用互不干扰（容器 id、配置前缀、激活事件均独立）。
 
