@@ -27,7 +27,8 @@ export function textOf(data: unknown): string {
   if (typeof data !== 'object') return String(data);
   const d = data as Record<string, unknown>;
   // 常见几种形状：{text} / {content:[{type:'text',text},…]} / {message} / {chunkText}
-  for (const key of ['text', 'message', 'chunkText', 'contentText']) {
+  // assistant/chunk 实测 data 为 {turn, step, chunk}（见 fixtures/sample-0.1.2-rc.1.json），chunk 才是文本
+  for (const key of ['text', 'chunk', 'message', 'chunkText', 'contentText']) {
     const v = d[key];
     if (typeof v === 'string' && v) return v;
   }

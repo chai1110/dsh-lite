@@ -124,6 +124,21 @@ test('已知状态事件 → 中文状态行', () => {
   assert.equal(s.entries[1].text, '待办更新');
 });
 
+test('assistant/chunk 的文本在 data.chunk（实测形状 {turn,step,chunk}）', () => {
+  const vm = new SessionViewModel();
+  vm.applyEvent(evt({ type: 'user/message', seq: 1, data: 'q' }));
+  vm.applyEvent(evt({ type: 'assistant/chunk', seq: 2, data: { turn: 't1', step: 's1', chunk: '增量' } }));
+  const s = vm.getState();
+  assert.equal(s.entries[1].text, '增量');
+});
+
+test('session/* 生命周期元事件不渲染（推进 seq 但无条目）', () => {
+  const vm = new SessionViewModel();
+  vm.applyEvent(evt({ type: 'session/end-seed', seq: 1, data: {} }));
+  assert.equal(vm.getState().entries.length, 0);
+  assert.equal(vm.getState().lastSeq, 1);
+});
+
 test('未识别事件折叠为 type 短标签状态行', () => {
   const vm = new SessionViewModel();
   vm.applyEvent(evt({ type: 'custom/weird', seq: 1 }));

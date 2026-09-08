@@ -63,7 +63,8 @@ describe('M1 真 dsh 冒烟', () => {
         probeService,
         processRunner: runner,
         log: (l) => logs.push(l),
-        startTimeoutMs: 20000,
+        // dsh profile boot 需加载上百个 loader 条目，本机实测 20s 不够（曾 30s+ 才出令牌行）
+        startTimeoutMs: 60000,
       },
     );
 

@@ -152,6 +152,10 @@ export class SessionViewModel {
       this.emit();
       return true;
     }
+    // session/* 是会话生命周期元事件（如 session/end-seed），对聊天无意义：折叠为空行不渲染
+    if (t.startsWith('session/')) {
+      return false;
+    }
     // 未识别事件：折叠为简短状态行，避免整条 JSON 糊在聊天里
     this.push({ seq, kind: 'status', text: label(t), ts });
     this.emit();
