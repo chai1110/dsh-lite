@@ -59,6 +59,10 @@
   color: var(--vscode-descriptionForeground);
 }
 
+.empty-action {
+  margin-top: 10px;
+}
+
 .msg {
   padding: 6px 8px;
   border-radius: 4px;

@@ -1,12 +1,14 @@
 // src/panel/provider.ts — 侧栏 webview 的宿主侧实现。
 //
-// 职责边界（M0）：只负责「渲染 HTML + 协议握手 + 下发状态快照」。
-// 连接 DSH、会话列表、事件流都属于 M1/M2，不要写在这里。
+// 职责：渲染 HTML + 协议握手 + 把 ConnectionManager 的快照翻译成 PanelState 下发。
+// 连接 DSH 的编排在 src/connection.ts（M1）；消息流/会话窗口在 M2+，不要写在这里。
 import { randomBytes } from 'node:crypto';
 import { existsSync } from 'node:fs';
 
 import * as vscode from 'vscode';
 
+import type { ConnectionManager } from '../connection';
+import { describeErr } from './errors';
 import {
   PROTOCOL_VERSION,
   initialState,
@@ -23,11 +25,23 @@ export class DshLitePanelProvider implements vscode.WebviewViewProvider {
 
   private view?: vscode.WebviewView;
   private state: PanelState = initialState();
+  private conn?: ConnectionManager;
+  private unsubscribe?: () => void;
 
   constructor(
     private readonly extensionUri: vscode.Uri,
     private readonly output: vscode.OutputChannel,
   ) {}
+
+  /** 在面板首次解析前由扩展入口注入（此时才能拿到工作区上下文） */
+  attachConnection(conn: ConnectionManager): void {
+    this.conn = conn;
+    this.unsubscribe?.();
+    this.unsubscribe = conn.onChange(() => {
+      this.state = this.toPanelState(conn.getSnapshot());
+      this.postState();
+    });
+  }
 
   resolveWebviewView(
     webviewView: vscode.WebviewView,
@@ -44,7 +58,6 @@ export class DshLitePanelProvider implements vscode.WebviewViewProvider {
     webviewView.webview.html = this.getHtml(webviewView.webview, outUri);
 
     webviewView.webview.onDidReceiveMessage((raw: unknown) => {
-      // webview 是不受信边界：只放行形状正确的消息。
       if (typeof raw !== 'object' || raw === null || typeof (raw as UiMessage).type !== 'string') {
         return;
       }
@@ -75,17 +88,39 @@ export class DshLitePanelProvider implements vscode.WebviewViewProvider {
         }
         this.post({ type: 'hello', protocolVersion: PROTOCOL_VERSION });
         this.postState();
+        // 握手成功即开始连接（autoStart 在 ConnectionManager 内判定）
+        if (this.conn) {
+          void this.conn.ensureConnected();
+        }
         return;
       }
       case 'ui/ready':
-        // UI 挂载完成，补发一次当前快照（握手与挂载顺序不保证）。
         this.postState();
         return;
       case 'ui/refresh':
-        // M0 忽略；M1 在此触发与 dsh 的重新连接。
-        this.output.appendLine('[panel] 收到 ui/refresh，M0 阶段忽略');
+        this.output.appendLine('[panel] 收到 ui/refresh → 重连');
+        if (this.conn) {
+          void this.conn.reconnect().then((snap) => {
+            this.state = this.toPanelState(snap);
+            this.postState();
+          });
+        }
         return;
     }
+  }
+
+  private toPanelState(snap: import('../connection').LiteSnapshot): PanelState {
+    const state: PanelState = {
+      connection: snap.phase,
+      sessions: snap.sessions,
+      activeSessionId: null,
+      messages: [],
+    };
+    if (snap.phase === 'error' || snap.phase === 'offline') {
+      const code = snap.errorCode ?? 'err.connectionLost';
+      state.error = { code, message: describeErr(code) };
+    }
+    return state;
   }
 
   private postState(): void {
@@ -100,8 +135,6 @@ export class DshLitePanelProvider implements vscode.WebviewViewProvider {
     const nonce = randomBytes(16).toString('hex');
     const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(outUri, 'webview.js'));
 
-    // esbuild 只有在 index.tsx 真的 import 了 css 时才产出 out/webview.css，
-    // 不存在就不要引用，避免 webview 里出现 404。
     const cssUri = vscode.Uri.joinPath(outUri, 'webview.css');
     const cssLink = existsSync(cssUri.fsPath)
       ? `<link rel="stylesheet" href="${webview.asWebviewUri(cssUri)}" />`

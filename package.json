@@ -59,15 +59,27 @@
         },
         "dshLite.composerEnterBehavior": {
           "type": "string",
-          "enum": ["send", "newline"],
-          "enumDescriptions": ["Enter 发送消息", "Enter 换行"],
+          "enum": [
+            "send",
+            "newline"
+          ],
+          "enumDescriptions": [
+            "Enter 发送消息",
+            "Enter 换行"
+          ],
           "default": "send",
           "description": "输入框中 Enter 键的行为（M3 生效）。"
         },
         "dshLite.followUpQueueMode": {
           "type": "string",
-          "enum": ["queue", "steer"],
-          "enumDescriptions": ["排队：等当前回合结束再发", "跟进：立即插入当前回合"],
+          "enum": [
+            "queue",
+            "steer"
+          ],
+          "enumDescriptions": [
+            "排队：等当前回合结束再发",
+            "跟进：立即插入当前回合"
+          ],
           "default": "queue",
           "description": "运行中再次发送消息时的处理方式（M3 生效）。"
         },
@@ -83,7 +95,12 @@
         },
         "dshLite.advanced.logLevel": {
           "type": "string",
-          "enum": ["error", "warn", "info", "debug"],
+          "enum": [
+            "error",
+            "warn",
+            "info",
+            "debug"
+          ],
           "default": "info",
           "description": "日志级别（M5 生效）。"
         }
@@ -97,15 +114,16 @@
     "test": "node scripts/build.mjs --test && node --test \"out/test/**/*.test.js\"",
     "package": "npm run compile && npx --yes @vscode/vsce package -o dsh-lite.vsix"
   },
-  "dependencies": {},
   "devDependencies": {
     "@types/node": "^22.10.2",
     "@types/react": "^18.3.17",
     "@types/react-dom": "^18.3.5",
     "@types/vscode": "^1.90.0",
+    "@types/ws": "^8.18.1",
     "esbuild": "^0.24.2",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "ws": "^8.21.3"
   }
 }

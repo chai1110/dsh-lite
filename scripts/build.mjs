@@ -25,7 +25,8 @@ const extensionConfig = {
   platform: 'node',
   format: 'cjs',
   target: 'node18',
-  external: ['vscode'],
+  // vscode 由宿主注入；bufferutil/utf-8-validate 是 ws 的可选原生加速，缺失时 ws 内部 try-catch 兜底
+  external: ['vscode', 'bufferutil', 'utf-8-validate'],
   sourcemap: true,
   logLevel: 'warning',
 };
@@ -68,7 +69,7 @@ function makeTestConfig() {
     platform: 'node',
     format: 'cjs',
     target: 'node18',
-    external: ['vscode'],
+    external: ['vscode', 'bufferutil', 'utf-8-validate'],
     sourcemap: true,
     logLevel: 'warning',
   };

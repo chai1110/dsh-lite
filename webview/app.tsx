@@ -25,22 +25,6 @@ function postUiMessage(message: UiMessage): void {
   vscode.postMessage(message);
 }
 
-/** 连接状态的非 ready 次级说明文案。 */
-function secondaryText(state: PanelState): string {
-  switch (state.connection) {
-    case 'idle':
-      return '未启动';
-    case 'connecting':
-      return '连接中…';
-    case 'offline':
-      return '已断开';
-    case 'error':
-      return state.error?.message ?? '出错了';
-    case 'ready':
-      return '';
-  }
-}
-
 /** 顶栏右侧连接状态点的颜色，一律用 --vscode-* 变量（明暗主题自动跟随）。 */
 function connectionColor(connection: ConnectionState): string {
   switch (connection) {
@@ -109,8 +93,32 @@ export function App(): ReactElement {
     );
   }
 
-  const sub = secondaryText(state);
   const isEmpty = state.messages.length === 0;
+
+  // 空态文案/动作按连接态变化（docs/design/宿主-UI协议.md §5.2）
+  const conn = state.connection;
+  let emptyTitle = '未连接';
+  let emptySub: string | undefined;
+  let actionLabel: string | null = null;
+  if (conn === 'connecting') {
+    emptyTitle = '连接中…';
+    emptySub = '正在探测并启动 dsh';
+  } else if (conn === 'ready') {
+    emptyTitle = '已连接';
+    emptySub = '会话与消息列表将在后续版本提供';
+  } else if (conn === 'error') {
+    emptyTitle = '连接出错';
+    emptySub = state.error?.message ?? '未知错误';
+    actionLabel = '重连';
+  } else if (conn === 'offline') {
+    emptyTitle = '已断开';
+    emptySub = state.error?.message ?? '点击重连重新拉起 dsh';
+    actionLabel = '重连';
+  } else {
+    emptySub = '点击启动开始连接';
+    actionLabel = '启动';
+  }
+  const canAct = actionLabel !== null && conn !== 'connecting';
 
   return (
     <div className="app">
@@ -137,8 +145,17 @@ export function App(): ReactElement {
       <main className="messages">
         {isEmpty ? (
           <div className="empty">
-            <div className="empty-title">尚未连接</div>
-            {sub ? <div className="empty-sub">{sub}</div> : null}
+            <div className="empty-title">{emptyTitle}</div>
+            {emptySub ? <div className="empty-sub">{emptySub}</div> : null}
+            {canAct && actionLabel ? (
+              <button
+                className="btn empty-action"
+                type="button"
+                onClick={() => postUiMessage({ type: 'ui/refresh' })}
+              >
+                {actionLabel}
+              </button>
+            ) : null}
           </div>
         ) : (
           state.messages.map((m) => (
