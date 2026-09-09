@@ -3,7 +3,6 @@ import type { KeyboardEvent, ReactElement, RefObject } from 'react';
 
 import type { SessionBrief } from '../../src/panel/protocol';
 import { Icon } from '../lib/codicon';
-import { post } from '../lib/post';
 
 interface ComposerProps {
   ready: boolean;
@@ -130,6 +129,3 @@ export function Composer(props: ComposerProps): ReactElement {
     </footer>
   );
 }
-
-// 单独暴露一个轻包装给 composer 内的“停止”调用做别名，方便 app 传
-export const __postStop = (): void => post({ type: 'ui/stop' });
