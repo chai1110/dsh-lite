@@ -14,10 +14,60 @@ function pickWorkspaceRoot(): string | undefined {
   return folders[Math.max(0, idx)].uri.fsPath;
 }
 
-export function activate(context: vscode.ExtensionContext): void {
+export async function activate(context: vscode.ExtensionContext): Promise<void> {
   const output = vscode.window.createOutputChannel('DSH Lite');
   context.subscriptions.push(output);
   output.appendLine('[DSH Lite] 扩展已激活');
+
+  // M13.1 一次性迁移：清理旧版本（M8~M12）残留在 workspaceStorage 里的视图位置污染。
+  // 旧 view id（dshLite.panel / dshLite.panel.secondary）被 VS Code 记进了 Explorer 容器，
+  // 旧 activitybar 容器 dshLite 的图标也还残留；仅靠换新 ID 无法清掉这些陈旧记录。
+  // 这里跑一次 workbench.action.resetViewLocations，把所有视图重置回它们 manifest 声明的位置
+  // （已不再声明的视图/容器会直接消失），用 globalState 记一次性，避免每次启动都重置。
+  const MIGRATION_KEY = 'dshLite.viewLocationMigrated_v2';
+  if (!context.globalState.get(MIGRATION_KEY)) {
+    const cmds = await vscode.commands.getCommands(true);
+    const hasOldLeft = cmds.includes('dshLite.panel.focus');
+    const hasOldRight = cmds.includes('dshLite.panel.secondary.focus');
+    const hasOldContainer = cmds.includes('workbench.view.extension.dshLite');
+    if (hasOldLeft || hasOldRight || hasOldContainer) {
+      output.appendLine('[DSH Lite] 检测到旧版本视图位置残留，正在执行一次性重置...');
+      // 优先用 moveView 精准迁移（只动我们自己的旧视图，不影响其他扩展）；
+      // 失败再回退到全局 resetViewLocations。
+      if (cmds.includes('workbench.action.moveView')) {
+        if (hasOldRight) {
+          try {
+            await vscode.commands.executeCommand('workbench.action.moveView', {
+              viewId: 'dshLite.panel.secondary',
+              containerId: 'dshLitePanelRight',
+            });
+            output.appendLine('[DSH Lite] 已将旧 dshLite.panel.secondary 迁移到 dshLitePanelRight');
+          } catch (err) {
+            output.appendLine(`[DSH Lite] 迁移旧右视图失败: ${String(err)}`);
+          }
+        }
+        if (hasOldLeft) {
+          try {
+            await vscode.commands.executeCommand('workbench.action.moveView', {
+              viewId: 'dshLite.panel',
+              containerId: 'dshLitePanel',
+            });
+            output.appendLine('[DSH Lite] 已将旧 dshLite.panel 迁移到 dshLitePanel');
+          } catch (err) {
+            output.appendLine(`[DSH Lite] 迁移旧左视图失败: ${String(err)}`);
+          }
+        }
+      } else {
+        try {
+          await vscode.commands.executeCommand('workbench.action.resetViewLocations');
+          output.appendLine('[DSH Lite] 已执行 workbench.action.resetViewLocations');
+        } catch (err) {
+          output.appendLine(`[DSH Lite] resetViewLocations 失败: ${String(err)}`);
+        }
+      }
+    }
+    await context.globalState.update(MIGRATION_KEY, true);
+  }
 
   const provider = new DshLitePanelProvider(context.extensionUri, output);
   // M8：同一 provider 实例同时服务左侧栏(dshLite.view.left)与右侧栏(dshLite.view.right)两个视图，
