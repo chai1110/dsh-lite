@@ -61,7 +61,7 @@
 | `panel/state.ts` | `buildPanelState()` —— 快照合成（连接 + 服务 + 错误） | 纯函数，单测覆盖 |
 | `panel/html.ts` | `getHtml()` —— webview HTML 模板（含 CSP） | 改前必看 CSP 白名单 |
 | `panel/commands.ts` | `registerPanelCommands()` + `openChatRight()` | 入口命令全在这里 |
-| `panel/migration.ts` | `runViewLocationMigration()` —— 一次性清理旧 view id 位置污染 | 由 `globalState` 控制只跑一次 |
+| `panel/migration.ts` | `runViewLocationMigration()` —— 直读 sqlite 精准删 M13.1 前的孤儿 viewId + 死 container state | 由 `globalState.viewLocationMigrated_v3` 控制只跑一次，依赖外置 sqlite3 CLI |
 | `panel/errors.ts` | `err.*` code → 中文描述 | `describeErr` |
 
 ### L6 入口
