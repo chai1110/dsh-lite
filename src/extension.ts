@@ -1,9 +1,24 @@
-// src/extension.ts — 扩展入口：装配输出通道、连接管理器、会话服务与侧栏 provider。
+// src/extension.ts — 扩展入口（纯装配）。
+//
+// 这里只做：
+//   1. 申请 OutputChannel、构造 Logger；
+//   2. 一次性迁移（旧视图位置污染）；
+//   3. 装配 ConnectionManager + SessionService（带 dispose）；
+//   4. 构造 DshLitePanelProvider 并 attach 服务；
+//   5. 注册两个 webview viewId（左右栏）；
+//   6. 注册面板命令（开左/开右/整页）。
+// 业务实现都在 src/{connection,session,panel}/* 里。
 import * as vscode from 'vscode';
 
 import { ConnectionManager } from './connection';
 import { getConfig } from './config';
-import { DshLitePanelProvider } from './panel/provider';
+import { createLogger } from './log';
+import {
+  DshLitePanelProvider,
+  openChatRight,
+  registerPanelCommands,
+  runViewLocationMigration,
+} from './panel';
 import { SessionService } from './session/service';
 
 /** 会话 cwd 过滤根：多根工作区用 dshLite.workspaceRootIndex 选第几个根 */
@@ -15,63 +30,17 @@ function pickWorkspaceRoot(): string | undefined {
 }
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
+  // 1. 日志
   const output = vscode.window.createOutputChannel('DSH Lite');
   context.subscriptions.push(output);
-  output.appendLine('[DSH Lite] 扩展已激活');
+  const log = createLogger(output, '[DSH Lite]');
+  log('扩展已激活');
 
-  // M13.1 一次性迁移：清理旧版本（M8~M12）残留在 workspaceStorage 里的视图位置污染。
-  // 旧 view id（dshLite.panel / dshLite.panel.secondary）被 VS Code 记进了 Explorer 容器，
-  // 旧 activitybar 容器 dshLite 的图标也还残留；仅靠换新 ID 无法清掉这些陈旧记录。
-  // 这里跑一次 workbench.action.resetViewLocations，把所有视图重置回它们 manifest 声明的位置
-  // （已不再声明的视图/容器会直接消失），用 globalState 记一次性，避免每次启动都重置。
-  const MIGRATION_KEY = 'dshLite.viewLocationMigrated_v2';
-  if (!context.globalState.get(MIGRATION_KEY)) {
-    const cmds = await vscode.commands.getCommands(true);
-    const hasOldLeft = cmds.includes('dshLite.panel.focus');
-    const hasOldRight = cmds.includes('dshLite.panel.secondary.focus');
-    const hasOldContainer = cmds.includes('workbench.view.extension.dshLite');
-    if (hasOldLeft || hasOldRight || hasOldContainer) {
-      output.appendLine('[DSH Lite] 检测到旧版本视图位置残留，正在执行一次性重置...');
-      // 优先用 moveView 精准迁移（只动我们自己的旧视图，不影响其他扩展）；
-      // 失败再回退到全局 resetViewLocations。
-      if (cmds.includes('workbench.action.moveView')) {
-        if (hasOldRight) {
-          try {
-            await vscode.commands.executeCommand('workbench.action.moveView', {
-              viewId: 'dshLite.panel.secondary',
-              containerId: 'dshLitePanelRight',
-            });
-            output.appendLine('[DSH Lite] 已将旧 dshLite.panel.secondary 迁移到 dshLitePanelRight');
-          } catch (err) {
-            output.appendLine(`[DSH Lite] 迁移旧右视图失败: ${String(err)}`);
-          }
-        }
-        if (hasOldLeft) {
-          try {
-            await vscode.commands.executeCommand('workbench.action.moveView', {
-              viewId: 'dshLite.panel',
-              containerId: 'dshLitePanel',
-            });
-            output.appendLine('[DSH Lite] 已将旧 dshLite.panel 迁移到 dshLitePanel');
-          } catch (err) {
-            output.appendLine(`[DSH Lite] 迁移旧左视图失败: ${String(err)}`);
-          }
-        }
-      } else {
-        try {
-          await vscode.commands.executeCommand('workbench.action.resetViewLocations');
-          output.appendLine('[DSH Lite] 已执行 workbench.action.resetViewLocations');
-        } catch (err) {
-          output.appendLine(`[DSH Lite] resetViewLocations 失败: ${String(err)}`);
-        }
-      }
-    }
-    await context.globalState.update(MIGRATION_KEY, true);
-  }
+  // 2. 一次性迁移（旧 view/container ID 留下的位置污染）
+  await runViewLocationMigration(context, log);
 
-  const provider = new DshLitePanelProvider(context.extensionUri, output);
-  // M8：同一 provider 实例同时服务左侧栏(dshLite.view.left)与右侧栏(dshLite.view.right)两个视图，
-  // 各自独立 resolve，宿主状态广播到两侧，保证左右同屏同会话（与 Codex / Claude Code 一致）。
+  // 3. provider（先构造，注册 view 时由 VS Code 触发 resolveWebviewView）
+  const provider = new DshLitePanelProvider(context.extensionUri, log);
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider(DshLitePanelProvider.viewId, provider, {
       webviewOptions: { retainContextWhenHidden: true },
@@ -81,8 +50,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     }),
   );
 
+  // 4. 连接 + 会话服务装配
   const root = pickWorkspaceRoot();
   const cfg = getConfig();
+  const connLog = log.child('conn');
   const conn = new ConnectionManager(
     {
       host: '127.0.0.1',
@@ -92,63 +63,24 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       autoStart: cfg.autoStart,
       workspaceRoot: root,
     },
-    { log: (line) => output.appendLine(line) },
+    { log: (line) => connLog(line) },
   );
   context.subscriptions.push({ dispose: () => conn.dispose() });
 
   const service = new SessionService(conn, {
-    log: (line) => output.appendLine(line),
+    log: (line) => log.child('session')(line),
     workspaceRoot: root,
     followUpMode: cfg.followUpQueueMode,
   });
-
   provider.attachConnection(conn, service);
 
-  // M12：对齐 Codex/CC 的「两步聚焦法」——先显式展开容器，再 focus 内部 view。
-  // 证据：Codex openSidebar = executeCommand(`workbench.view.extension.codexSecondaryViewContainer`)
-  //   + executeCommand(`chatgpt.sidebarSecondaryView.focus`)；CC sidebar.open = focus + show()。
-  // 仅 .focus() 无法把默认隐藏的 secondarySidebar 容器拉开 → 之前点击右上角会跑到左侧/无反应。
-  // M13：抽成共享函数，openChat 命令与 openOnStartup（开机即右侧）共用。
-  const openChatRight = async (): Promise<void> => {
-    try {
-      await vscode.commands.executeCommand(`workbench.view.extension.dshLitePanelRight`);
-      await vscode.commands.executeCommand(`${DshLitePanelProvider.viewIdSecondary}.focus`);
-    } catch {
-      try {
-        await vscode.commands.executeCommand(`workbench.view.extension.dshLitePanel`);
-        await vscode.commands.executeCommand(`${DshLitePanelProvider.viewId}.focus`);
-      } catch {
-        await vscode.commands.executeCommand(`${DshLitePanelProvider.viewId}.focus`);
-      }
-    }
-  };
-
+  // 5. 开机即右侧
   if (cfg.openOnStartup) {
     void openChatRight();
   }
 
-  context.subscriptions.push(
-    // M12：对齐 Codex/CC 的「两步聚焦法」——先显式展开容器，再 focus 内部 view。
-    // 证据：Codex openSidebar = executeCommand(`workbench.view.extension.codexSecondaryViewContainer`)
-    //   + executeCommand(`chatgpt.sidebarSecondaryView.focus`)；CC sidebar.open = focus + show()。
-    // 仅 .focus() 无法把默认隐藏的 secondarySidebar 容器拉开 → 之前点击右上角会跑到左侧/无反应。
-    vscode.commands.registerCommand('dshLite.openSidebar', async () => {
-      try {
-        await vscode.commands.executeCommand(`workbench.view.extension.dshLitePanel`);
-        await vscode.commands.executeCommand(`${DshLitePanelProvider.viewId}.focus`);
-      } catch {
-        // 兜底：即便容器命令不可用也尝试直接聚焦视图
-        await vscode.commands.executeCommand(`${DshLitePanelProvider.viewId}.focus`);
-      }
-    }),
-    // M8：右上角 editor/title 入口 → 在右侧（次要）侧栏展开对话；
-    // M12 修复：先展开右侧容器 dshLitePanelRight（= 整个右边出现 DSH Lite 栏），再 focus 其 view。
-    // 旧版 VS Code(<1.106) 无 secondarySidebar 容器时回退到左侧栏（同样先展开容器）。
-    vscode.commands.registerCommand('dshLite.openChat', openChatRight),
-    // M13：整页对话 —— 在编辑区以编辑器标签形式开「整页 DSH Lite」（对齐 Chat Editor 形态）；
-    // 与左/右侧栏共用同一会话：任一面操作，其它面（含本整页）广播同步。
-    vscode.commands.registerCommand('dshLite.openChatFull', () => provider.openFullPage()),
-  );
+  // 6. 命令注册（开左/开右/整页）
+  registerPanelCommands(context, provider);
 }
 
 export async function deactivate(): Promise<void> {

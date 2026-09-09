@@ -5,6 +5,27 @@
 
 ## 未发布
 
+### M14 代码规整：分层清晰、职责单一（不改变行为）
+- 目的：让模块边界一眼能看清，排查问题时知道该翻哪个文件。
+- **src/ 重组**：
+  - 新增 `src/log.ts`（共享 Logger，包装 OutputChannel，支持 `child('xxx')` 嵌套）
+  - `src/panel/` 按职责拆分（之前 352 行的 provider.ts 拆成 6 个）：
+    - `panel/provider.ts`（只负责 webview 句柄+消息分发+广播）
+    - `panel/state.ts`（`buildPanelState` 快照合成，独立可单测）
+    - `panel/html.ts`（`getHtml` HTML 模板）
+    - `panel/commands.ts`（命令注册 + 共享 `openChatRight`）
+    - `panel/migration.ts`（一次性视图位置迁移）
+    - `panel/index.ts`（公开 API 入口，extension.ts 只从这里 import）
+  - `src/extension.ts` 瘦身：156 行 → 110 行（纯装配 6 步：日志→迁移→provider→连接/服务→openOnStartup→命令）
+- **webview/ 拆分**（之前 960 行的 app.tsx 拆成 10 个文件）：
+  - `webview/app.tsx`（状态机 + 消息路由 + JSX 拼装，440 行）
+  - `webview/components/` 7 个组件：topbar / history-dropdown / empty-state / messages / approval-card / goal-dock / slash-overlay / composer
+  - `webview/lib/` 纯函数工具：post（上行通信）/ util（timeBucket 等）/ codicon（图标组件）
+- **文档**：
+  - `docs/architecture.md`（分层图 + 数据流 + 「单一来源」原则）
+  - `docs/folder-map.md`（每文件职责 + 改动前看哪里 + 典型问题排查路径）
+- 验证：typecheck 通过；单测 86 过 / 0 失败 / 3 跳过（与重构前完全一致）；vsix 409.55KB；M13/M13.1 行为零变化。
+
 ### M13.1 修复：点右上角却出现在左侧 Explorer —— 视图位置持久化污染
 - 现象：openChat 打开后对话在左侧文件树下面；右侧副侧栏容器条无 DSH Lite 图标（默认 Chat /
   Claude Code / Codex / 0.5.1 都在右边）。
