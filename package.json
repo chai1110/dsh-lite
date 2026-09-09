@@ -14,8 +14,8 @@
   },
   "main": "./out/extension.js",
   "activationEvents": [
-    "onView:dshLite.panel",
-    "onView:dshLite.panel.secondary",
+    "onView:dshLite.view.left",
+    "onView:dshLite.view.right",
     "onCommand:dshLite.openSidebar",
     "onCommand:dshLite.openChat",
     "onCommand:dshLite.openChatFull"
@@ -24,7 +24,7 @@
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "dshLite",
+          "id": "dshLitePanel",
           "title": "DSH Lite",
           "icon": {
             "light": "assets/icon-light.svg",
@@ -34,7 +34,7 @@
       ],
       "secondarySidebar": [
         {
-          "id": "dshLiteSecondary",
+          "id": "dshLitePanelRight",
           "title": "DSH Lite",
           "icon": {
             "light": "assets/icon-light.svg",
@@ -44,16 +44,16 @@
       ]
     },
     "views": {
-      "dshLite": [
+      "dshLitePanel": [
         {
-          "id": "dshLite.panel",
+          "id": "dshLite.view.left",
           "name": "DSH Lite",
           "type": "webview"
         }
       ],
-      "dshLiteSecondary": [
+      "dshLitePanelRight": [
         {
-          "id": "dshLite.panel.secondary",
+          "id": "dshLite.view.right",
           "name": "DSH Lite",
           "type": "webview"
         }

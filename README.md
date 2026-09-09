@@ -15,7 +15,7 @@ DSH Lite 不像 0.5.1 那样用 iframe 嵌入整站，而是**自研 webview + R
 | 通信 | 整站资源加载 | postMessage RPC 直连本机 DSH |
 | 扩展 ID / 配置前缀 | `dsh-vscode` / `dsh.*` | `dsh-lite` / `dshLite.*` |
 | 页面数量 | 含整站全部页面 | 一页到底，无设置页 |
-| 激活事件 | 13 个 | 5 个（两视图 `onView:dshLite.panel[.secondary]` + 三命令 `onCommand:dshLite.openSidebar|openChat|openChatFull`） |
+| 激活事件 | 13 个 | 5 个（两视图 `onView:dshLite.view.left|.right` + 三命令 `onCommand:dshLite.openSidebar|openChat|openChatFull`） |
 | 并存 | — | 与 0.5.1 **可同时启用、互不干扰**（容器 id、配置前缀均独立） |
 
 ## 当前状态
@@ -39,6 +39,7 @@ DSH Lite 不像 0.5.1 那样用 iframe 嵌入整站，而是**自研 webview + R
 | M11 | 对标 dsh web 窗口感：空态大插画「探索未至之境」+ composer 三行（模式条/textarea/工具条）；tools/preview.html 自查 | ✅ |
 | M12 | 右上角入口修复：openChat/openSidebar 改「先展开容器再 focus」两步法（focus 不展开收起容器），<1.106 回退左栏 | ✅ |
 | M13 | 整页对话（命令 `dshLite.openChatFull`，编辑区标签，与侧栏同会话广播）+ `openOnStartup` 开机即右侧 + 布局机制梳理文档 | ✅ |
+| M13.1 | 修复「点右上角却出现在左侧 Explorer」：根因=旧 view id 被 VS Code 持久化记进 Explorer 容器；容器/视图 ID 全换新（`dshLitePanel`/`dshLitePanelRight` + `dshLite.view.left|.right`） | ✅ |
 
 **验收路径**：`npm run typecheck` && `npm test`（沙箱 86 通过 / 0 失败 / 3 跳过；本机 `DSH_LITE_E2E=1` 89/89——真实 dsh 三次 boot M1/M6/M7 集成全绿）。
 

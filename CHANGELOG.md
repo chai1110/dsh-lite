@@ -5,6 +5,21 @@
 
 ## 未发布
 
+### M13.1 修复：点右上角却出现在左侧 Explorer —— 视图位置持久化污染
+- 现象：openChat 打开后对话在左侧文件树下面；右侧副侧栏容器条无 DSH Lite 图标（默认 Chat /
+  Claude Code / Codex / 0.5.1 都在右边）。
+- 根因：workspaceStorage 的 `workbench.explorer.views.state` 把旧视图 id
+  `dshLite.panel` / `dshLite.panel.secondary` 记成了 **Explorer 容器的成员**——M8~M12 早期对
+  “未展开的右侧视图”直接 `.focus()` 时，VS Code 把视图挪进当时可见的左侧 Explorer 并持久化，
+  此后无论命令怎么改都按记忆渲染在 Explorer。
+- 修复：容器/视图 ID 全换新（容器 `dshLitePanel` + `dshLitePanelRight`，视图
+  `dshLite.view.left` / `dshLite.view.right`，整页标签 `dshLite.chat.full`），抹掉全部陈旧
+  位置记录，按 manifest 声明位置全新注册（右容器 = secondarySidebar）。ID 见 src/panel/provider.ts
+  与 package.json。
+- 对照实证：0.5.1 `openSecondary()` = 直接 `dsh.panel.secondary.focus`（成功即返回），旧版回退
+  `workbench.action.focusSecondarySideBar` + 左视图 focus；Codex 现行两步法与本扩展一致。
+- 用户侧（可选）：若老窗口仍有残留，命令面板执行 `View: Reset View Locations`。
+
 ### M13 整页对话 + 开机开右栏 + 布局机制梳理（与 Codex/CC 位置机制对齐收口）
 - **入口决策落地**：① 保留双入口（左侧 activitybar 容器 + 右侧 secondarySidebar 容器，两边都可开，
   与 Codex/CC 一致）；② `openOnStartup` 改为「开机即右侧」——由原来只 `focus` 左侧视图改为

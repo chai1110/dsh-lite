@@ -20,7 +20,7 @@ export function activate(context: vscode.ExtensionContext): void {
   output.appendLine('[DSH Lite] 扩展已激活');
 
   const provider = new DshLitePanelProvider(context.extensionUri, output);
-  // M8：同一 provider 实例同时服务左侧栏(dshLite.panel)与右侧栏(dshLite.panel.secondary)两个视图，
+  // M8：同一 provider 实例同时服务左侧栏(dshLite.view.left)与右侧栏(dshLite.view.right)两个视图，
   // 各自独立 resolve，宿主状态广播到两侧，保证左右同屏同会话（与 Codex / Claude Code 一致）。
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider(DshLitePanelProvider.viewId, provider, {
@@ -61,11 +61,11 @@ export function activate(context: vscode.ExtensionContext): void {
   // M13：抽成共享函数，openChat 命令与 openOnStartup（开机即右侧）共用。
   const openChatRight = async (): Promise<void> => {
     try {
-      await vscode.commands.executeCommand(`workbench.view.extension.dshLiteSecondary`);
+      await vscode.commands.executeCommand(`workbench.view.extension.dshLitePanelRight`);
       await vscode.commands.executeCommand(`${DshLitePanelProvider.viewIdSecondary}.focus`);
     } catch {
       try {
-        await vscode.commands.executeCommand(`workbench.view.extension.dshLite`);
+        await vscode.commands.executeCommand(`workbench.view.extension.dshLitePanel`);
         await vscode.commands.executeCommand(`${DshLitePanelProvider.viewId}.focus`);
       } catch {
         await vscode.commands.executeCommand(`${DshLitePanelProvider.viewId}.focus`);
@@ -84,7 +84,7 @@ export function activate(context: vscode.ExtensionContext): void {
     // 仅 .focus() 无法把默认隐藏的 secondarySidebar 容器拉开 → 之前点击右上角会跑到左侧/无反应。
     vscode.commands.registerCommand('dshLite.openSidebar', async () => {
       try {
-        await vscode.commands.executeCommand(`workbench.view.extension.dshLite`);
+        await vscode.commands.executeCommand(`workbench.view.extension.dshLitePanel`);
         await vscode.commands.executeCommand(`${DshLitePanelProvider.viewId}.focus`);
       } catch {
         // 兜底：即便容器命令不可用也尝试直接聚焦视图
@@ -92,7 +92,7 @@ export function activate(context: vscode.ExtensionContext): void {
       }
     }),
     // M8：右上角 editor/title 入口 → 在右侧（次要）侧栏展开对话；
-    // M12 修复：先展开右侧容器 dshLiteSecondary（= 整个右边出现 DSH Lite 栏），再 focus 其 view。
+    // M12 修复：先展开右侧容器 dshLitePanelRight（= 整个右边出现 DSH Lite 栏），再 focus 其 view。
     // 旧版 VS Code(<1.106) 无 secondarySidebar 容器时回退到左侧栏（同样先展开容器）。
     vscode.commands.registerCommand('dshLite.openChat', openChatRight),
     // M13：整页对话 —— 在编辑区以编辑器标签形式开「整页 DSH Lite」（对齐 Chat Editor 形态）；

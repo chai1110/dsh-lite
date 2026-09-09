@@ -22,9 +22,12 @@ import {
 } from './protocol';
 
 export class DshLitePanelProvider implements vscode.WebviewViewProvider {
-  static readonly viewId = 'dshLite.panel';
-  /** M8：右侧（次要）侧栏中的视图；与左侧视图共用同一 provider 实例与会话 */
-  static readonly viewIdSecondary = 'dshLite.panel.secondary';
+  // M13.1：view/container ID 换新（dshLite.panel[.secondary]/dshLiteSecondary 作废）。
+  // 根因：M8~M12 对「未展开的右侧视图」直接 .focus()，VS Code 找不到其容器时把视图挪进
+  // 当时可见的左侧 Explorer 并把位置写进了 workspaceStorage（explorer.views.state），此后无论
+  // 命令怎么改，视图都按记忆渲染在 Explorer 里。换全新 ID = 抹掉这份陈旧位置，回归声明位置注册。
+  static readonly viewId = 'dshLite.view.left';
+  static readonly viewIdSecondary = 'dshLite.view.right';
 
   /** 当前存活的 webview 视图，按 viewType(=viewId) 索引：左侧栏与右侧栏可并存 */
   private readonly views = new Map<string, vscode.WebviewView>();
@@ -79,7 +82,7 @@ export class DshLitePanelProvider implements vscode.WebviewViewProvider {
     const outUri = vscode.Uri.joinPath(this.extensionUri, 'out');
     const assetsUri = vscode.Uri.joinPath(this.extensionUri, 'assets');
     const panel = vscode.window.createWebviewPanel(
-      'dshLite.full',
+      'dshLite.chat.full',
       'DSH Lite',
       vscode.ViewColumn.Active,
       {

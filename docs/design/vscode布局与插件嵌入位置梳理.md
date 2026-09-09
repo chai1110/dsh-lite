@@ -137,6 +137,24 @@ viewsContainers（容器，=活动栏一个图标，如 dshLite）
 
 若 1、2 通过，说明“右上角 → 整个右边”这条链路已完全打通，与 Codex/CC 一致。
 
+### 7.1 M13.1 实机根因：视图位置被宿主“记住”进了错误的容器（已修复，commit 见 CHANGELOG）
+
+- **现象**：点右上角入口，对话仍出现在左侧 Explorer 文件树下面；右侧副侧栏容器条里
+  也没有 DSH Lite 图标（默认 Chat / Claude Code / Codex / 0.5.1 都在）。
+- **根因（workspaceStorage 实证）**：`workbench.explorer.views.state` 里记录了
+  `dshLite.panel`、`dshLite.panel.secondary` 两个视图 **属于 Explorer 容器**。
+  来源：M8~M12 早期代码对“尚未展开的右侧视图”直接 `.focus()`——容器没打开时，
+  VS Code 会把视图挪进**当时可见的左侧 Explorer** 并**持久化**这个位置；此后无论命令
+  怎么写（M12 两步法也救不回），视图都按记忆渲染在 Explorer。对比 0.5.1（`dsh-secondary`/
+  `dsh.panel.secondary`）、Codex、CC 的视图从未被挪过 → 它们都在右侧正常。
+- **修复**：容器/视图 ID 全部换新 —— 容器 `dshLitePanel`（左）+ `dshLitePanelRight`（右），
+  视图 `dshLite.view.left` / `dshLite.view.right`（整页标签 `dshLite.chat.full`）。
+  新 ID 无任何陈旧持久化记录 → 按 manifest 声明位置全新注册。比让用户逐个窗口执行
+  `View: Reset View Locations` 更彻底、可随版本自动生效。
+- 参考：0.5.1 `openSecondary()` = 直接 `dsh.panel.secondary.focus`（成功即返回），旧版回退
+  `workbench.action.focusSecondarySideBar` + 聚焦左视图；Codex 现行 = `workbench.view.extension.
+  codexSecondaryViewContainer` + `chatgpt.sidebarSecondaryView.focus`（与本扩展两步法一致）。
+
 ---
 
 ## 8. 决策落地（M13，用户拍板后实现）
