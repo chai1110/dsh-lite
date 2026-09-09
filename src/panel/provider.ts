@@ -28,6 +28,8 @@ export class DshLitePanelProvider implements vscode.WebviewViewProvider {
 
   /** 当前存活的 webview 视图，按 viewType(=viewId) 索引：左侧栏与右侧栏可并存 */
   private readonly views = new Map<string, vscode.WebviewView>();
+  /** M13：整页对话（WebviewPanel，以编辑器标签形式占满编辑区）；单实例，重复打开只 reveal */
+  private fullPanel?: vscode.WebviewPanel;
   private state: PanelState = initialState();
   private conn?: ConnectionManager;
   private service?: SessionService;
@@ -60,31 +62,65 @@ export class DshLitePanelProvider implements vscode.WebviewViewProvider {
   ): void {
     const viewType = webviewView.viewType;
     this.views.set(viewType, webviewView);
+    this.wireWebview(webviewView.webview, () => {
+      // 视图关闭 → 从广播集移除（右侧栏隐藏≠dispose；只有真正关闭才触发）
+      webviewView.onDidDispose(() => this.views.delete(viewType));
+    });
+    this.output.appendLine(`[panel:${viewType}] webview 已创建，等待 UI 握手`);
+  }
+
+  /** M13：整页对话 —— 以 WebviewPanel 在编辑区开一个「DSH Lite」标签，占满整页（对齐 Chat Editor 形态）。
+   *  与左/右侧栏共用同一 host（provider.post 广播）与同一会话，任何一面操作其它面同步。 */
+  openFullPage(): void {
+    if (this.fullPanel) {
+      this.fullPanel.reveal(vscode.ViewColumn.Active, true);
+      return;
+    }
     const outUri = vscode.Uri.joinPath(this.extensionUri, 'out');
     const assetsUri = vscode.Uri.joinPath(this.extensionUri, 'assets');
+    const panel = vscode.window.createWebviewPanel(
+      'dshLite.full',
+      'DSH Lite',
+      vscode.ViewColumn.Active,
+      {
+        enableScripts: true,
+        retainContextWhenHidden: true,
+        localResourceRoots: [outUri, assetsUri],
+      },
+    );
+    panel.iconPath = {
+      light: vscode.Uri.joinPath(assetsUri, 'icon-light.svg'),
+      dark: vscode.Uri.joinPath(assetsUri, 'icon-dark.svg'),
+    };
+    this.fullPanel = panel;
+    this.wireWebview(panel.webview, () => {
+      panel.onDidDispose(() => {
+        if (this.fullPanel === panel) this.fullPanel = undefined;
+      });
+    }, true);
+    this.output.appendLine('[panel:dshLite.full] 整页对话已打开');
+  }
 
-    webviewView.webview.options = {
+  /** 给一个 webview（侧栏视图或整页面板）装载同一份 HTML/协议，事件统一进 handleUiMessage */
+  private wireWebview(webview: vscode.Webview, attachDispose: () => void, full = false): void {
+    const outUri = vscode.Uri.joinPath(this.extensionUri, 'out');
+    const assetsUri = vscode.Uri.joinPath(this.extensionUri, 'assets');
+    webview.options = {
       enableScripts: true,
       // M9：out/=构建产物（webview bundle+css）；assets/=图标字体（codicon）等静态资源
       localResourceRoots: [outUri, assetsUri],
     };
-    webviewView.webview.html = this.getHtml(webviewView.webview, outUri, assetsUri);
-
-    webviewView.webview.onDidReceiveMessage((raw: unknown) => {
+    webview.html = this.getHtml(webview, outUri, assetsUri, full);
+    webview.onDidReceiveMessage((raw: unknown) => {
       if (typeof raw !== 'object' || raw === null || typeof (raw as UiMessage).type !== 'string') {
         return;
       }
-      this.handleUiMessage(raw as UiMessage);
+      this.handleUiMessage(raw as UiMessage, webview);
     });
-
-    webviewView.onDidDispose(() => {
-      this.views.delete(viewType);
-    });
-
-    this.output.appendLine(`[panel:${viewType}] webview 已创建，等待 UI 握手`);
+    attachDispose();
   }
 
-  private handleUiMessage(msg: UiMessage): void {
+  private handleUiMessage(msg: UiMessage, from: vscode.Webview): void {
     switch (msg.type) {
       case 'hello': {
         if (!isProtocolCompatible(msg.protocolVersion)) {
@@ -94,10 +130,11 @@ export class DshLitePanelProvider implements vscode.WebviewViewProvider {
           this.output.appendLine(
             `[panel] 协议版本不匹配：UI=${msg.protocolVersion} 宿主=${PROTOCOL_VERSION} → ${hint}`,
           );
-          this.post({ type: 'host/error', code: 'protocol-mismatch', message });
+          this.postTo(from, { type: 'host/error', code: 'protocol-mismatch', message });
           return;
         }
-        this.post({ type: 'hello', protocolVersion: PROTOCOL_VERSION });
+        // M13：hello 应答只回给发出方（多面共存时不再向所有 webview 重复广播 hello）
+        this.postTo(from, { type: 'hello', protocolVersion: PROTOCOL_VERSION });
         this.publish();
         if (this.conn) void this.conn.ensureConnected();
         return;
@@ -216,13 +253,20 @@ export class DshLitePanelProvider implements vscode.WebviewViewProvider {
   }
 
   private post(message: HostMessage): void {
-    // M8：广播给左/右所有存活视图，两侧始终同屏同会话
+    // M8：广播给左/右所有存活视图，两侧始终同屏同会话；M13：整页标签也并入广播
     for (const view of this.views.values()) {
       void view.webview.postMessage(message);
     }
+    if (this.fullPanel) {
+      void this.fullPanel.webview.postMessage(message);
+    }
   }
 
-  private getHtml(webview: vscode.Webview, outUri: vscode.Uri, assetsUri: vscode.Uri): string {
+  private postTo(webview: vscode.Webview, message: HostMessage): void {
+    void webview.postMessage(message);
+  }
+
+  private getHtml(webview: vscode.Webview, outUri: vscode.Uri, assetsUri: vscode.Uri, full = false): string {
     const nonce = randomBytes(16).toString('hex');
     const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(outUri, 'webview.js'));
 
@@ -248,6 +292,22 @@ export class DshLitePanelProvider implements vscode.WebviewViewProvider {
       `font-src ${webview.cspSource}`, // M9：codicon 图标字体
       `img-src ${webview.cspSource} data:`,
     ].join('; ');
+
+    // M13：整页模式把内容约束为居中阅读列（避免全宽拉伸），背景切编辑器底色，左右加细分隔
+    const fullCss = full
+      ? `<style>
+      body.dsh-full {
+        background-color: var(--vscode-editor-background, var(--vscode-sideBar-background));
+      }
+      body.dsh-full .app {
+        max-width: 1160px;
+        width: 100%;
+        margin: 0 auto;
+        border-left: 1px solid var(--vscode-panel-border, transparent);
+        border-right: 1px solid var(--vscode-panel-border, transparent);
+      }
+    </style>`
+      : '';
 
     return `<!DOCTYPE html>
 <html lang="zh-CN">
@@ -277,8 +337,9 @@ export class DshLitePanelProvider implements vscode.WebviewViewProvider {
         height: 100%;
       }
     </style>
+    ${fullCss}
   </head>
-  <body>
+  <body${full ? ' class="dsh-full"' : ''}>
     <div id="root"></div>
     <script nonce="${nonce}">window.DSH_LOGO=${JSON.stringify(logoUrl)};</script>
     <script nonce="${nonce}" src="${scriptUri}"></script>

@@ -15,12 +15,12 @@ DSH Lite 不像 0.5.1 那样用 iframe 嵌入整站，而是**自研 webview + R
 | 通信 | 整站资源加载 | postMessage RPC 直连本机 DSH |
 | 扩展 ID / 配置前缀 | `dsh-vscode` / `dsh.*` | `dsh-lite` / `dshLite.*` |
 | 页面数量 | 含整站全部页面 | 一页到底，无设置页 |
-| 激活事件 | 13 个 | 4 个（两视图 `onView:dshLite.panel[.secondary]` + 两命令 `onCommand:dshLite.openSidebar|openChat`） |
+| 激活事件 | 13 个 | 5 个（两视图 `onView:dshLite.panel[.secondary]` + 三命令 `onCommand:dshLite.openSidebar|openChat|openChatFull`） |
 | 并存 | — | 与 0.5.1 **可同时启用、互不干扰**（容器 id、配置前缀均独立） |
 
 ## 当前状态
 
-**M1~M9 已实现**（本地构建 + 89 项测试：沙箱 86 通过 / 0 失败 / 3 跳过（真实 dsh E2E），本机 `DSH_LITE_E2E=1` 89/89 全绿）：
+**M1~M13 已实现**（本地构建 + 89 项测试：沙箱 86 通过 / 0 失败 / 3 跳过（真实 dsh E2E），本机 `DSH_LITE_E2E=1` 89/89 全绿）：
 
 | 里程碑 | 内容 | 状态 |
 |---|---|---|
@@ -34,6 +34,11 @@ DSH Lite 不像 0.5.1 那样用 iframe 嵌入整站，而是**自研 webview + R
 | M7 | 会话管理：全量历史（不按 cwd 过滤，与浏览器一致）+ 命名 + 归档/取消归档分组 | ✅ |
 | M8 | 双栏布局：右侧（次要）侧栏容器 + 右上角入口（editor/title 图标，点它右侧开聊），左右同屏同会话，对齐 Codex / Claude Code / 0.5.1 | ✅ |
 | M9 | 符号与交互对齐：codicon 图标字体（emoji/文本符号全替换）+ 历史弹层搜索与时间分组（今天/昨天/7天/更早）+ 消息角色图标列与 hover 复制 + CC 式圆形发送/停止钮 | ✅ |
+| M9b | 顶栏收口「logo + 会话名」单入口；消息统一 16px 角色图标 + 整宽文本（去气泡/大色块），工具/命令内嵌缩进小卡片 | ✅ |
+| M10 | 消息左右分栏（assistant 左 / user 右气泡）+ 右上角 editor/title 图标 light/dark 双套（根因：该区域 svg 不染色） | ✅ |
+| M11 | 对标 dsh web 窗口感：空态大插画「探索未至之境」+ composer 三行（模式条/textarea/工具条）；tools/preview.html 自查 | ✅ |
+| M12 | 右上角入口修复：openChat/openSidebar 改「先展开容器再 focus」两步法（focus 不展开收起容器），<1.106 回退左栏 | ✅ |
+| M13 | 整页对话（命令 `dshLite.openChatFull`，编辑区标签，与侧栏同会话广播）+ `openOnStartup` 开机即右侧 + 布局机制梳理文档 | ✅ |
 
 **验收路径**：`npm run typecheck` && `npm test`（沙箱 86 通过 / 0 失败 / 3 跳过；本机 `DSH_LITE_E2E=1` 89/89——真实 dsh 三次 boot M1/M6/M7 集成全绿）。
 

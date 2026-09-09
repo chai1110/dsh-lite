@@ -5,6 +5,50 @@
 
 ## 未发布
 
+### M13 整页对话 + 开机开右栏 + 布局机制梳理（与 Codex/CC 位置机制对齐收口）
+- **入口决策落地**：① 保留双入口（左侧 activitybar 容器 + 右侧 secondarySidebar 容器，两边都可开，
+  与 Codex/CC 一致）；② `openOnStartup` 改为「开机即右侧」——由原来只 `focus` 左侧视图改为
+  共享 `openChatRight()`（M12 两步法：先 `workbench.view.extension.dshLiteSecondary` 展开右侧容器、
+  再 `dshLite.panel.secondary.focus`），旧版 VS Code（<1.106）自动回退左侧容器；③ 新增**整页对话**；
+  ④ 右栏宽度由用户拖拽记忆，不做处理（与 Codex 行为一致）。
+- **整页对话（Chat Editor 形态）**：新命令 `dshLite.openChatFull`（命令面板可搜）→
+  `DshLitePanelProvider.openFullPage()` 以 `WebviewPanel` 在编辑区开「DSH Lite」整页标签，
+  iconPath 用 light/dark 配对；单实例，重复执行只 `reveal` 聚焦。与左/右侧栏共用同一
+  host（`post()` 广播至全部存活面）与同一会话——任一面操作，其它面实时同步。
+- **provider 接线重构**：抽 `wireWebview(webview, attachDispose, full)` 统一装载（侧栏视图与
+  整页面板同一份 HTML/协议/CSP）；`hello` 应答从「广播给所有面」改为 `postTo(from)` 只回发出方
+  （多面共存时不重复广播）。
+- **整页样式**：`body.dsh-full` 模式注入额外 CSS——`.app` 约束 `max-width:1160px` 居中阅读列 +
+  编辑器底色 + 左右 1px 细分隔，避免全宽拉伸；侧栏模式零变化。
+- **机制梳理文档**：`docs/design/vscode布局与插件嵌入位置梳理.md` —— VS Code 六区域、插件可贡献
+  点全表（容器/视图/editor/title/面板/状态栏/自定义编辑器）、「focus 不展开容器」语义、
+  主流聊天插件（Copilot/Codex/CC/Cline）落点对照、`package.json` + `extension.ts` 逐条对照、
+  真机验证 7 步清单。
+- 激活事件 4→5（增 `onCommand:dshLite.openChatFull`）；配置描述更新。
+- 测试：typecheck 通过；单测 86 过 / 0 失败 / 3 跳过（E2E 需真实 dsh）。
+
+### M12 右上角入口修复：先展开容器再 focus（对齐 Codex/CC 两步聚焦法）
+- 根因：`openChat` 之前只 `.focus()` 右侧视图——`focus` 不会把默认隐藏的
+  `secondarySidebar` 容器拉开，结果视图跑到左侧/最下方（「没有整个右边扩展」）。
+- 修复：`dshLite.openChat` / `dshLite.openSidebar` 均改为两步——先
+  `executeCommand('workbench.view.extension.<容器Id>')` 展开所在侧栏，再 `<viewId>.focus`；
+  <1.106 无副侧栏时 catch 回退左侧容器两步，再兜底纯 focus。
+- 证据：反编译 Codex `openSidebar`（`workbench.view.extension.codexSecondaryViewContainer`
+  + `chatgpt.sidebarSecondaryView.focus`）、CC `sidebar.open`（focus + show()）。
+
+### M11 对标 dsh web「窗口感」：空态大插画 + 底栏三行 composer
+- 大空态「探索未至之境」（96px rocket+sparkle 插画 + 按连接/会话/错误四态引导 + 动作按钮）。
+- composer 拆三行：模式条（cwd pill + ●普通 pill）→ textarea → 工具条（round ＋ + 目标 chip
+  + 圆形发送/停止主钮）。保留审批卡与目标 dock。
+- 自查工具 `tools/preview.html` 增 `?view=empty`；playwright-core + 共享 Chrome 截图（深/浅 × 空/消息）。
+
+### M10 消息左右分栏气泡 + 右上角图标双套配色
+- 消息流分栏：assistant 左整宽文本 + sparkle 紫标；user 右对齐气泡（圆角 10/10/2/10、
+  `--vscode-chat-requestBackground/Border`）+ account 图标贴最右。
+- 右上角 editor/title 图标隐形根因：该区域把 command svg 当普通 image 渲染（不走 mask 染色），
+  `fill="currentColor"` → 黑色隐形；改 `{light: icon-light.svg(#1F1F1F), dark: icon-dark.svg(#C5C5C5)}`
+  配对，命令与两容器共用；webview 内 `.brand-logo` 深色主题 invert。
+
 ### M9b 对照 Codex / Claude Code 界面逐项校准（顶栏收口 + 消息观感对齐）
 - **顶栏收口为「logo + 会话名」单入口**：左侧 = 品牌 logo（assets/icon.svg，host 注入
   window.DSH_LOGO；缺失回退 codicon 占位）+ 当前会话标题 + chevron，整钮点击即展开全部历史；

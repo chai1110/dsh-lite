@@ -54,8 +54,27 @@ export function activate(context: vscode.ExtensionContext): void {
 
   provider.attachConnection(conn, service);
 
+  // M12：对齐 Codex/CC 的「两步聚焦法」——先显式展开容器，再 focus 内部 view。
+  // 证据：Codex openSidebar = executeCommand(`workbench.view.extension.codexSecondaryViewContainer`)
+  //   + executeCommand(`chatgpt.sidebarSecondaryView.focus`)；CC sidebar.open = focus + show()。
+  // 仅 .focus() 无法把默认隐藏的 secondarySidebar 容器拉开 → 之前点击右上角会跑到左侧/无反应。
+  // M13：抽成共享函数，openChat 命令与 openOnStartup（开机即右侧）共用。
+  const openChatRight = async (): Promise<void> => {
+    try {
+      await vscode.commands.executeCommand(`workbench.view.extension.dshLiteSecondary`);
+      await vscode.commands.executeCommand(`${DshLitePanelProvider.viewIdSecondary}.focus`);
+    } catch {
+      try {
+        await vscode.commands.executeCommand(`workbench.view.extension.dshLite`);
+        await vscode.commands.executeCommand(`${DshLitePanelProvider.viewId}.focus`);
+      } catch {
+        await vscode.commands.executeCommand(`${DshLitePanelProvider.viewId}.focus`);
+      }
+    }
+  };
+
   if (cfg.openOnStartup) {
-    void vscode.commands.executeCommand(`${DshLitePanelProvider.viewId}.focus`);
+    void openChatRight();
   }
 
   context.subscriptions.push(
@@ -75,19 +94,10 @@ export function activate(context: vscode.ExtensionContext): void {
     // M8：右上角 editor/title 入口 → 在右侧（次要）侧栏展开对话；
     // M12 修复：先展开右侧容器 dshLiteSecondary（= 整个右边出现 DSH Lite 栏），再 focus 其 view。
     // 旧版 VS Code(<1.106) 无 secondarySidebar 容器时回退到左侧栏（同样先展开容器）。
-    vscode.commands.registerCommand('dshLite.openChat', async () => {
-      try {
-        await vscode.commands.executeCommand(`workbench.view.extension.dshLiteSecondary`);
-        await vscode.commands.executeCommand(`${DshLitePanelProvider.viewIdSecondary}.focus`);
-      } catch {
-        try {
-          await vscode.commands.executeCommand(`workbench.view.extension.dshLite`);
-          await vscode.commands.executeCommand(`${DshLitePanelProvider.viewId}.focus`);
-        } catch {
-          await vscode.commands.executeCommand(`${DshLitePanelProvider.viewId}.focus`);
-        }
-      }
-    }),
+    vscode.commands.registerCommand('dshLite.openChat', openChatRight),
+    // M13：整页对话 —— 在编辑区以编辑器标签形式开「整页 DSH Lite」（对齐 Chat Editor 形态）；
+    // 与左/右侧栏共用同一会话：任一面操作，其它面（含本整页）广播同步。
+    vscode.commands.registerCommand('dshLite.openChatFull', () => provider.openFullPage()),
   );
 }
 

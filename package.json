@@ -17,7 +17,8 @@
     "onView:dshLite.panel",
     "onView:dshLite.panel.secondary",
     "onCommand:dshLite.openSidebar",
-    "onCommand:dshLite.openChat"
+    "onCommand:dshLite.openChat",
+    "onCommand:dshLite.openChatFull"
   ],
   "contributes": {
     "viewsContainers": {
@@ -72,6 +73,11 @@
           "light": "assets/icon-light.svg",
           "dark": "assets/icon-dark.svg"
         }
+      },
+      {
+        "command": "dshLite.openChatFull",
+        "title": "在整页标签中打开对话",
+        "category": "DSH Lite"
       }
     ],
     "menus": {
@@ -87,6 +93,9 @@
         },
         {
           "command": "dshLite.openChat"
+        },
+        {
+          "command": "dshLite.openChatFull"
         }
       ]
     },
@@ -106,7 +115,7 @@
         "dshLite.openOnStartup": {
           "type": "boolean",
           "default": false,
-          "description": "启动 VS Code 后自动聚焦 DSH 侧栏（M1 生效）。"
+          "description": "启动 VS Code 后自动在右侧打开 DSH 对话（M13 起开右栏，旧版无副侧栏时回退左侧）。"
         },
         "dshLite.composerEnterBehavior": {
           "type": "string",
