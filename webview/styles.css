@@ -157,6 +157,14 @@
   line-height: 1.55;
 }
 
+.msg-body-wrap {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
 .msg-user .msg-body {
   flex: 0 1 auto;
   max-width: 88%;
@@ -226,6 +234,147 @@
   margin-top: 4px;
   padding: 1px 8px;
   min-width: 0;
+}
+
+/* —— M13.4 折叠卡片（学 dsh-client-ui-tool 的 ToolRow：头部一行 + 按需展开正文）—— */
+.collapse {
+  align-self: flex-start;
+  width: 100%;
+  max-width: 100%;
+  margin-left: 6px;
+  font-size: 12px;
+  border-left: 3px solid var(--vscode-charts-blue, var(--vscode-panel-border));
+  border-radius: 4px;
+  background-color: var(--vscode-editor-background);
+}
+
+.collapse.is-collapsed {
+  border: 1px solid var(--vscode-panel-border);
+  border-left-width: 3px;
+}
+
+.collapse.is-open {
+  border: 1px solid var(--vscode-panel-border);
+  border-left-width: 3px;
+}
+
+.collapse-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  cursor: pointer;
+  user-select: none;
+  color: var(--vscode-foreground);
+}
+
+.collapse.is-collapsed .collapse-head:hover {
+  background-color: var(--vscode-list-hoverBackground);
+}
+
+.collapse-chevron {
+  flex: 0 0 auto;
+  width: 16px;
+  display: inline-flex;
+  justify-content: center;
+  color: var(--vscode-descriptionForeground);
+}
+
+.collapse-icon {
+  flex: 0 0 auto;
+  color: var(--vscode-charts-blue, var(--vscode-descriptionForeground));
+}
+
+.collapse-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--vscode-editor-font-family, monospace);
+}
+
+.collapse-meta {
+  flex: 0 0 auto;
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.collapse-copy {
+  flex: 0 0 auto;
+  opacity: 0;
+  transition: opacity 80ms ease;
+}
+
+.collapse-head:hover .collapse-copy,
+.collapse.is-open .collapse-copy {
+  opacity: 1;
+}
+
+.collapse-body {
+  padding: 4px 10px 8px 26px;
+  border-top: 1px solid var(--vscode-panel-border);
+}
+
+.tool-body {
+  margin: 0;
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 11px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--vscode-foreground);
+  background-color: var(--vscode-input-background, var(--vscode-editor-background));
+  padding: 6px 8px;
+  border-radius: 3px;
+  max-height: 360px;
+  overflow: auto;
+}
+
+.collapse-body .tool-result-body {
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 11px;
+  background-color: var(--vscode-input-background, var(--vscode-editor-background));
+  padding: 6px 8px;
+  border-radius: 3px;
+  max-height: 480px;
+  overflow: auto;
+}
+
+/* —— M13.4 助手长文本折叠 —— */
+.msg-text .msg-body.clamp {
+  display: -webkit-box;
+  -webkit-line-clamp: 6;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.msg-body.is-streaming::after {
+  content: '\u258D'; /* ▍ */
+  display: inline-block;
+  margin-left: 1px;
+  color: var(--vscode-descriptionForeground);
+  animation: dsh-blink 1s steps(1) infinite;
+}
+
+@keyframes dsh-blink {
+  50% { opacity: 0; }
+}
+
+.msg-toggle {
+  margin-top: 4px;
+  align-self: flex-start;
+  font-size: 11px;
+  padding: 1px 8px;
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 4px;
+  color: var(--vscode-descriptionForeground);
+  background: transparent;
+  cursor: pointer;
+}
+
+.msg-toggle:hover {
+  color: var(--vscode-foreground);
+  background-color: var(--vscode-list-hoverBackground);
 }
 
 /* 输入区（M11 仿 dsh web 三行：模式条 + textarea + 工具条） */

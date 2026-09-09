@@ -79,11 +79,11 @@
   const messages = [
     { id: 'm1', role: 'user', text: '把消息流的布局改成左边是角色图标、右边是内容，hover 出复制按钮，像 Codex 那样。' },
     { id: 'm2', role: 'assistant', text: '好的，我来梳理一下改造点：顶栏改成「logo + 历史入口」，消息行加角色图标列，发送按钮改成圆形。\n需要同时保证双栏（左/右）都能用。' },
-    { id: 'm3', kind: 'tool', role: 'assistant', toolState: 'call', text: 'rg -n "MsgRow|msg-row" webview/', id: '' },
+    { id: 'm3', kind: 'tool', role: 'assistant', toolState: 'call', text: 'rg -n "MsgRow|msg-row" webview/' },
     { id: 'm4', kind: 'tool', role: 'assistant', toolState: 'result', text: 'webview/app.tsx:83:function MsgRow...\nwebview/styles.css:412:.msg-row{display:flex...}\n（共 12 处命中，其中含长文本的会被 clamp 折叠到 6 行，点展开查看全文。这是一段用于验证长结果折叠展示的补充说明文字，确保超过 300 字符的阈值以便渲染出展开/收起按钮。这段文字可以再长一点也没有关系，主要目的是触发 long 分支。）' },
-    { id: 'm5', role: 'assistant', text: '另外我注意到 0.5.1 是通过 iframe 内嵌官方整站，所以它天然就长官方 GUI 那样；我们是自研 webview，需要在符号和布局上主动对齐。' },
-    { id: 'm6', kind: 'command', role: 'assistant', cmdState: 'run', text: '/goal 完成 UI 符号化改造', cmdOk: undefined },
-    { id: 'm7', kind: 'command', role: 'assistant', cmdState: 'done', cmdOk: true, text: '/goal 完成 UI 符号化改造', resultText: '目标已创建（进行中）' },
+    { id: 'm5', role: 'assistant', streaming: false, text: '另外我注意到 0.5.1 是通过 iframe 内嵌官方整站，所以它天然就长官方 GUI 那样；我们是自研 webview，需要在符号和布局上主动对齐。\n\n下面列一下本次 M13.4 折叠改造涉及的几处变更：\n1. 工具调用（tool/call）默认折叠——头部一行「工具名 + 参数预览」+ chevron；点击展开看完整参数 JSON。\n2. 工具结果（tool/result）默认折叠——头部显示「行数 / 字数」摘要；点击展开看完整输出（容器带 max-height + overflow 滚动，避免撑爆布局）。\n3. 助手长文本（>500 字）默认 6 行 clamp，按钮「展开全文」/「收起」切换；流式时用 CSS 伪元素画一个细微闪动光标 ▍，不再硬塞字符到文本末尾（之前那种字符光标会跟随行宽滚动、撑大右侧气泡，体验不好）。\n4. 头部 hover 才出现「复制」按钮——避免每条卡片都挤一个图标，整体观感更接近 Codex 的「消息行 hover 浮操作」。\n6. 命令气泡与状态行保持不变——它们本来就只一行，不算「墙」。\n\n这套做法对齐官方 dsh-client-ui-tool 的 ToolRow 模式（header + chevron + meta + on-demand body），比之前那种「每条都整卡铺满」要清爽很多。工具结果和参数预览的字符上限我设了 120（首行），多了就 … 截断；长输出展开后容器有 max-height + overflow:auto，可以独立滚动而不撑大整个对话区。' },
+    { id: 'm6', kind: 'command', role: 'assistant', cmdState: 'run', text: '/goal 完成 UI 折叠改造' },
+    { id: 'm7', kind: 'command', role: 'assistant', cmdState: 'done', cmdOk: true, text: '/goal 完成 UI 折叠改造', resultText: '目标已创建（进行中）' },
     { id: 'm8', role: 'user', text: '运行 npm test 确认没有回归。' },
     { id: 'm9', role: 'assistant', streaming: false, text: 'npm test 结果：86 passed / 0 failed / 3 skipped（E2E 需真机）。' },
   ];
