@@ -59,16 +59,33 @@ export function activate(context: vscode.ExtensionContext): void {
   }
 
   context.subscriptions.push(
+    // M12：对齐 Codex/CC 的「两步聚焦法」——先显式展开容器，再 focus 内部 view。
+    // 证据：Codex openSidebar = executeCommand(`workbench.view.extension.codexSecondaryViewContainer`)
+    //   + executeCommand(`chatgpt.sidebarSecondaryView.focus`)；CC sidebar.open = focus + show()。
+    // 仅 .focus() 无法把默认隐藏的 secondarySidebar 容器拉开 → 之前点击右上角会跑到左侧/无反应。
     vscode.commands.registerCommand('dshLite.openSidebar', async () => {
-      await vscode.commands.executeCommand(`${DshLitePanelProvider.viewId}.focus`);
+      try {
+        await vscode.commands.executeCommand(`workbench.view.extension.dshLite`);
+        await vscode.commands.executeCommand(`${DshLitePanelProvider.viewId}.focus`);
+      } catch {
+        // 兜底：即便容器命令不可用也尝试直接聚焦视图
+        await vscode.commands.executeCommand(`${DshLitePanelProvider.viewId}.focus`);
+      }
     }),
-    // M8：右上角 editor/title 入口 → 在右侧（次要）侧栏启动对话；
-    // 旧版 VS Code(<1.106) 无 secondarySidebar 容器时回退到左侧栏。
+    // M8：右上角 editor/title 入口 → 在右侧（次要）侧栏展开对话；
+    // M12 修复：先展开右侧容器 dshLiteSecondary（= 整个右边出现 DSH Lite 栏），再 focus 其 view。
+    // 旧版 VS Code(<1.106) 无 secondarySidebar 容器时回退到左侧栏（同样先展开容器）。
     vscode.commands.registerCommand('dshLite.openChat', async () => {
       try {
+        await vscode.commands.executeCommand(`workbench.view.extension.dshLiteSecondary`);
         await vscode.commands.executeCommand(`${DshLitePanelProvider.viewIdSecondary}.focus`);
       } catch {
-        await vscode.commands.executeCommand(`${DshLitePanelProvider.viewId}.focus`);
+        try {
+          await vscode.commands.executeCommand(`workbench.view.extension.dshLite`);
+          await vscode.commands.executeCommand(`${DshLitePanelProvider.viewId}.focus`);
+        } catch {
+          await vscode.commands.executeCommand(`${DshLitePanelProvider.viewId}.focus`);
+        }
       }
     }),
   );
