@@ -915,6 +915,32 @@ body.vscode-high-contrast .brand-logo {
 }
 
 /* 历史弹层：搜索框 + 时间分组标题 */
+/* M13.3 连接状态横幅：未就绪时置顶展示原因 + 重连入口 */
+.history-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  margin-bottom: 4px;
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  background: var(--vscode-editorWarning-background, var(--vscode-inputValidation-infoBackground));
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 4px;
+}
+
+.history-status-text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.history-status-btn {
+  flex: 0 0 auto;
+  font-size: 11px;
+  padding: 1px 8px;
+  border: 1px solid var(--vscode-button-border, transparent);
+}
+
 .history-search {
   display: flex;
   align-items: center;

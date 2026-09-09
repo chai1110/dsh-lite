@@ -309,10 +309,14 @@ export function App(): ReactElement {
         onNewSession={() => post({ type: 'ui/newSession' })}
       />
 
-      {dropdown && ready ? (
+      {/* M13.3：任意连接态都可展开（未就绪时下拉顶部显示状态横幅 + 重连） */}
+      {dropdown ? (
         <HistoryDropdown
           query={historyQuery}
           onQueryChange={setHistoryQuery}
+          connection={state.connection}
+          error={state.error ?? null}
+          onReconnect={() => post({ type: 'ui/refresh' })}
           groups={groups}
           archived={archivedSessions}
           showArchived={showArchived}
@@ -415,7 +419,7 @@ function buildEmptyState(state: PanelState): {
       title = '探索未至之境';
       sub =
         state.sessions.length > 0
-          ? '从顶部 ▾ 选择一个历史会话继续，或点下方「新建会话」开始'
+          ? '点顶部历史入口选择一个会话继续，或点下方「新建会话」开始'
           : '点下方「新建会话」开始，/ 开头可执行命令，/goal 可设目标';
       actions.push({
         label: '新建会话',

@@ -22,8 +22,7 @@ export function Topbar(props: TopbarProps): ReactElement {
         <button
           className="btn session-btn"
           type="button"
-          disabled={!ready}
-          title={ready ? '点开查看全部历史会话 / 切换会话' : '等待连接…'}
+          title={ready ? '点开查看全部历史会话 / 切换会话' : '查看历史会话（当前未就绪）'}
           onClick={onToggleDropdown}
         >
           {brandLogo ? (
@@ -34,7 +33,8 @@ export function Topbar(props: TopbarProps): ReactElement {
             </span>
           )}
           <span className="session-btn-title">{ready ? activeTitle : 'DSH Lite'}</span>
-          {ready ? <Icon n="chevron-down" /> : null}
+          {/* M13.3：历史入口对齐 Codex —— 时钟历史图标，点开展开全部会话 */}
+          <Icon n="history" />
         </button>
       </div>
       <div className="topbar-right">

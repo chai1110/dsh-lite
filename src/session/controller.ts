@@ -82,6 +82,7 @@ export class SessionController {
       const snap = v as { records?: SnapshotRecord[]; cursor?: number };
       this.vm.reset();
       this.vm.applyRecords(snap.records);
+      this.deps.log(`[follow] 会话快照已载入（${snap.records?.length ?? 0} 条记录）`);
       return;
     }
     // chunks / 其它帧：不消费（快照里的 chunks 归 snapshot 处理；独立 chunks 帧暂忽略）

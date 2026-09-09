@@ -146,6 +146,7 @@ export class DshLitePanelProvider implements vscode.WebviewViewProvider {
         }
         // M13：hello 应答只回给发出方（多面共存时不再向所有 webview 重复广播 hello）
         this.postTo(from, { type: 'hello', protocolVersion: PROTOCOL_VERSION });
+        this.log(`[panel] UI 握手完成（protocol=${msg.protocolVersion}），下发初始状态`);
         this.publish();
         if (this.conn) void this.conn.ensureConnected();
         return;

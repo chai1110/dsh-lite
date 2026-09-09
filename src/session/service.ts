@@ -376,6 +376,7 @@ export class SessionService {
       this.attachIfReady();
       // 尚未选中时自动选最新会话（列表已按 cwd 过滤）
       if (!this.activeId && snap.sessions.length > 0) {
+        this.deps.log(`[session] 自动选中最新会话: ${snap.sessions[0].title}`);
         this.select(snap.sessions[0].sessionId);
       }
       // 归档集合同步放最后：稳定流序 $events → session/follow → workspace/follow（一次性基线，读完即 cancel）

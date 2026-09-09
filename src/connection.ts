@@ -166,6 +166,7 @@ export class ConnectionManager {
       this.set({ phase: 'error', errorCode: 'err.cookieExchange' });
       return this.getSnapshot();
     }
+    this.deps.log('[auth] cookie 已交换，建立 WS…');
     const origin = new URL(svc.authUrl).origin;
     this.origin = origin;
     this.authUrl = svc.authUrl;
@@ -189,6 +190,7 @@ export class ConnectionManager {
     }
     this.reconnectAttempts = 0;
     this.set({ phase: 'ready', errorCode: null });
+    this.deps.log('[rpc] WS 已连接，拉取会话清单…');
     await this.refreshSessions();
   }
 

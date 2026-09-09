@@ -14,6 +14,12 @@ interface HistoryDropdownProps {
   /** 搜索词 + setter（受控） */
   query: string;
   onQueryChange: (v: string) => void;
+  /** 连接态：非 ready 时顶部显示状态横幅（M13.3：让「点开找不到会话」有明确原因） */
+  connection: string;
+  /** 连接错误信息（connection=error/offline 时有值） */
+  error: { code: string; message: string } | null;
+  /** 状态横幅上的「重连」回调 */
+  onReconnect: () => void;
   /** 时间分组（已按 updatedAt 倒序排好） */
   groups: Group[];
   /** 已归档（折叠时仍展示头部） */
@@ -36,18 +42,52 @@ interface HistoryDropdownProps {
 
 export function HistoryDropdown(props: HistoryDropdownProps): ReactElement {
   const {
-    query, onQueryChange, groups, archived, showArchived, onToggleArchived,
-    activeSessionId, onOpen, onStartRename, onSaveRename, onCancelRename,
+    query, onQueryChange, connection, error, onReconnect, groups, archived, showArchived,
+    onToggleArchived, activeSessionId, onOpen, onStartRename, onSaveRename, onCancelRename,
     renameId, renameValue, onRenameValueChange, onClose,
   } = props;
   const trimmed = query.trim().toLowerCase();
   const totalShown = groups.reduce((n, g) => n + g.rows.length, 0) + archived.length;
   const q = trimmed;
+  const ready = connection === 'ready';
+
+  // 连接状态横幅文案（M13.3）
+  let statusText = '';
+  let statusIcon = 'info';
+  if (connection === 'connecting') {
+    statusText = '正在连接 dsh…';
+    statusIcon = 'loading';
+  } else if (connection === 'error') {
+    statusText = `连接出错：${error?.message ?? '未知错误'}`;
+    statusIcon = 'error';
+  } else if (connection === 'offline') {
+    statusText = `已断开：${error?.message ?? 'dsh 进程已停止'}`;
+    statusIcon = 'plug';
+  } else if (connection === 'idle') {
+    statusText = '尚未连接，点击「连接」启动 dsh';
+    statusIcon = 'plug';
+  }
 
   return (
     <>
       <div className="dropdown-backdrop" onClick={onClose} />
       <div className="session-list">
+        {!ready && statusText ? (
+          <div className="history-status">
+            <Icon n={statusIcon} spin={statusIcon === 'loading'} />
+            <span className="history-status-text">{statusText}</span>
+            {connection !== 'connecting' ? (
+              <button
+                className="row-btn history-status-btn"
+                type="button"
+                title={connection === 'idle' ? '启动并连接' : '重新连接'}
+                onClick={onReconnect}
+              >
+                {connection === 'idle' ? '连接' : '重连'}
+              </button>
+            ) : null}
+          </div>
+        ) : null}
         <div className="history-search">
           <Icon n="search" />
           <input
@@ -64,7 +104,9 @@ export function HistoryDropdown(props: HistoryDropdownProps): ReactElement {
           />
         </div>
         {totalShown === 0 ? (
-          <div className="session-empty">{q ? '无匹配会话' : '暂无会话'}</div>
+          <div className="session-empty">
+            {q ? '无匹配会话' : ready ? '还没有会话，点右上角 ＋ 新建' : '连接就绪后会话将显示在这里'}
+          </div>
         ) : (
           <>
             {groups.map((g) => (

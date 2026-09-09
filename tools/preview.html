@@ -99,11 +99,22 @@
     commands: [{ name: 'goal', description: '设定/查看目标', hint: 'objective' }, { name: 'clear', description: '清空当前上下文' }],
   };
   // M11 view=empty 看空态（探索未至之境大插画）；view=ready 空消息 + 无 active 会话；
-  // 其他默认 = 有会话有消息
+  // 其他默认 = 有会话有消息；conn=error/offline 连接态覆盖（M13.3 状态横幅自查）
   const _qs = new URLSearchParams(location.search);
   if (_qs.get('view') === 'empty') {
     state.activeSessionId = null;
     state.messages = [];
+    state.goal = null;
+  }
+  const _conn = _qs.get('conn');
+  if (_conn) {
+    state.connection = _conn;
+    state.error = _conn === 'error'
+      ? { code: 'err.wsUnreachable', message: '无法连接 dsh（127.0.0.1:3082）' }
+      : { code: 'err.connectionLost', message: '连接已断开' };
+    state.sessions = [];
+    state.messages = [];
+    state.activeSessionId = null;
     state.goal = null;
   }
   window.addEventListener('load', () => {
