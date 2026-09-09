@@ -19,10 +19,19 @@ import * as vscode from 'vscode';
 
 import type { Logger } from '../log';
 
-const MIGRATION_KEY = 'dshLite.viewLocationMigrated_v3';
+const MIGRATION_KEY = 'dshLite.viewLocationMigrated_v4';
 
-// M13.1 之前用过的 view / container id；manifest 已删，但 workspaceStorage 里仍有 stale 记录。
-const LEGACY_VIEW_IDS = ['dshLite.panel', 'dshLite.panel.secondary'];
+// M13.1 之前用过的 view id；manifest 已删，但 workspaceStorage 里仍有 stale 记录。
+// M13.1 之后的新 view id（dshLite.view.left/right）也可能被用户/VS Code 拖进 Explorer 容器，
+// 出现在 explorer.views.state 里 —— 这两个 view 的归属位置应该是 activitybar / secondarySidebar
+// 容器（见 package.json views.dshLitePanel / views.dshLitePanelRight），
+// 在 Explorer 容器里出现 = 位置错乱，必须清掉。
+const ORPHAN_VIEW_IDS_IN_EXPLORER = [
+  'dshLite.panel',
+  'dshLite.panel.secondary',
+  'dshLite.view.left',
+  'dshLite.view.right',
+];
 const LEGACY_CONTAINER_STATE_KEYS = [
   'workbench.view.extension.dshLite.state',
   'workbench.view.extension.dshLiteSecondary.state',
@@ -120,7 +129,7 @@ interface SqliteConn {
   delete(key: string): boolean;
 }
 
-/** 单个 db 上：解析 explorer.views.state，删 LEGACY_VIEW_IDS 子键；删 LEGACY_CONTAINER_STATE_KEYS 整行。 */
+/** 单个 db 上：解析 explorer.views.state，删 ORPHAN_VIEW_IDS_IN_EXPLORER 子键；删 LEGACY_CONTAINER_STATE_KEYS 整行。 */
 function purgeLegacyInDb(sqliteBin: string, dbPath: string, log: Logger): { touched: boolean; details: string[] } {
   const details: string[] = [];
   const result = mutateDb(sqliteBin, dbPath, (conn) => {
@@ -135,7 +144,7 @@ function purgeLegacyInDb(sqliteBin: string, dbPath: string, log: Logger): { touc
       return;
     }
     let removed: string[] = [];
-    for (const id of LEGACY_VIEW_IDS) {
+    for (const id of ORPHAN_VIEW_IDS_IN_EXPLORER) {
       if (Object.prototype.hasOwnProperty.call(obj, id)) {
         delete obj[id];
         removed.push(id);
