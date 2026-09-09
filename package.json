@@ -26,20 +26,14 @@
         {
           "id": "dshLitePanel",
           "title": "DSH Lite",
-          "icon": {
-            "light": "assets/icon-light.svg",
-            "dark": "assets/icon-dark.svg"
-          }
+          "icon": "assets/icon.svg"
         }
       ],
       "secondarySidebar": [
         {
           "id": "dshLitePanelRight",
           "title": "DSH Lite",
-          "icon": {
-            "light": "assets/icon-light.svg",
-            "dark": "assets/icon-dark.svg"
-          }
+          "icon": "assets/icon.svg"
         }
       ]
     },
