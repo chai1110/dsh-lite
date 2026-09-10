@@ -88,6 +88,9 @@ function CollapseRow({
 }
 
 function MsgRow({ m }: { m: ViewMessage }): ReactElement {
+  // React Hooks 规则：hook 必须无条件、按固定顺序调用。下面三个分支都带 early return，
+  // 若 useState 放在它们之后，同一实例的 kind 变化时 hook 数量会变 → 白屏。故提到最前。
+  const [open, setOpen] = useState(false);
   // 流式尾巴：极细光标，淡灰闪动（CSS 处理）；不在文本里硬塞字符（避免撑宽布局）
   const showStreaming = Boolean(m.streaming);
 
@@ -165,7 +168,6 @@ function MsgRow({ m }: { m: ViewMessage }): ReactElement {
   const text = m.text || '\u00A0';
   // 助手长文本默认 clamp 到 6 行，可展开
   const longAssistant = isAssistant && text.length > 500;
-  const [open, setOpen] = useState(false);
   const clamped = longAssistant && !open;
   const hasCopy = m.text.length > 0;
 

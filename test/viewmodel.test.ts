@@ -159,7 +159,7 @@ test('session/* 生命周期元事件不渲染（推进 seq 但无条目）', ()
   assert.equal(vm.getState().lastSeq, 1);
 });
 
-test('审批/目标/计划类事件按实证类型显示状态行（0.1.2-rc.1 known-event-types）', () => {
+test('审批/计划/权限/模型类事件显示状态行；goal/change 静默（仅折叠进投影）', () => {
   const vm = new SessionViewModel();
   vm.applyEvent(evt({ type: 'approval/asked', seq: 1, data: {} }));
   vm.applyEvent(evt({ type: 'goal/change', seq: 2, data: {} }));
@@ -167,9 +167,10 @@ test('审批/目标/计划类事件按实证类型显示状态行（0.1.2-rc.1 k
   vm.applyEvent(evt({ type: 'permission/preset', seq: 4, data: {} }));
   vm.applyEvent(evt({ type: 'model/selection', seq: 5, data: {} }));
   const s = vm.getState();
+  // goal/change 不产生条目（高频推送，落行会刷成「目标已更新」墙）
   assert.deepEqual(
     s.entries.map((e) => e.text),
-    ['需要审批', '目标已更新', '计划模式', '权限档位变更', '模型切换'],
+    ['需要审批', '计划模式', '权限档位变更', '模型切换'],
   );
 });
 

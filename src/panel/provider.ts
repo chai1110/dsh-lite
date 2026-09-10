@@ -226,6 +226,11 @@ export class DshLitePanelProvider implements vscode.WebviewViewProvider {
     }
   }
 
+  /** 配置变更后重发状态（如 composerEnterBehavior 影响输入框提示语，需立即下发） */
+  republish(): void {
+    this.publish();
+  }
+
   // ===== 宿主 → UI 状态发布 =====
 
   private publish(): void {

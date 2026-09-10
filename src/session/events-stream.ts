@@ -25,6 +25,9 @@ export interface EventsHubHandlers {
 
 export type ApprovalOutcome = 'allowed-once' | 'rejected';
 
+/** 应答超时：服务端既不回 end 也不回 error（如 eventId 已过期被静默丢弃）时，避免 Promise 永久悬挂 */
+const ANSWER_TIMEOUT_MS = 8000;
+
 /** $events 流解析结果（把线缆帧归一化为高层事件） */
 export class RemoteEventsHub {
   private stream: MuxStream<unknown> | null = null;
@@ -73,6 +76,18 @@ export class RemoteEventsHub {
     }
     return new Promise((resolve, reject) => {
       let settled = false;
+      let timer: NodeJS.Timeout;
+      const settle = (fn: () => void): void => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        fn();
+      };
+      // 兜底超时：避免服务端无响应时 Promise 永不 settle
+      timer = setTimeout(() => {
+        settle(() => reject(new Error(`$events/result 应答超时（${ANSWER_TIMEOUT_MS}ms）`)));
+      }, ANSWER_TIMEOUT_MS);
+      timer.unref?.();
       try {
         const stream = this.mux.open('$events/result', {
           clientId,
@@ -80,17 +95,13 @@ export class RemoteEventsHub {
           outcome: { kind: 'result', value: outcome },
         });
         stream.onError((err) => {
-          if (settled) return;
-          settled = true;
-          reject(new Error(`${err.code} ${err.message}`));
+          settle(() => reject(new Error(`${err.code} ${err.message}`)));
         });
         stream.onEnd(() => {
-          if (settled) return;
-          settled = true;
-          resolve();
+          settle(() => resolve());
         });
       } catch (err) {
-        reject(err instanceof Error ? err : new Error(String(err)));
+        settle(() => reject(err instanceof Error ? err : new Error(String(err))));
       }
     });
   }

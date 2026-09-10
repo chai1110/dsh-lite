@@ -13,10 +13,19 @@ export type RpcResult<T> =
   | { ok: true; value: T }
   | { ok: false; error: { code: string; message: string; details?: Record<string, unknown> } };
 
-export interface RpcHttpError {
-  kind: 'http';
-  status: number;
-  body: string;
+/**
+ * HTTP 层错误。必须是 Error 子类：调用方普遍用 `catch (err) { String(err) }` 记日志，
+ * 若抛裸对象会退化为 "[object Object]"，把 status/body（含 401 的 token 失效提示）全部吞掉。
+ */
+export class RpcHttpError extends Error {
+  readonly kind = 'http' as const;
+  constructor(
+    readonly status: number,
+    readonly body: string,
+  ) {
+    super(`RPC HTTP ${status}${body ? `: ${body.slice(0, 300)}` : ''}`);
+    this.name = 'RpcHttpError';
+  }
 }
 
 export type UnaryError = RpcHttpError;
@@ -44,12 +53,12 @@ export async function unary<T = unknown>(
     clearTimeout(timer);
   }
   if (!res.ok) {
-    throw { kind: 'http', status: res.status, body: await res.text().catch(() => '') } satisfies UnaryError;
+    throw new RpcHttpError(res.status, await res.text().catch(() => ''));
   }
   const body = (await res.json()) as { type?: string; rpcId?: string; result?: RpcResult<T> };
   const result = body.result;
   if (!result) {
-    throw { kind: 'http', status: res.status, body: JSON.stringify(body).slice(0, 500) } satisfies UnaryError;
+    throw new RpcHttpError(res.status, JSON.stringify(body).slice(0, 500));
   }
   return result;
 }

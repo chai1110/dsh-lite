@@ -13,8 +13,6 @@ export interface ServiceSnapshot {
   port: number;
   /** 失败原因 code（仅 failed 时有值） */
   errorCode: string | null;
-  /** 由插件自起并持有（本设计恒为 true，保留字段便于断言与日志） */
-  owned: boolean;
 }
 
 export type ServiceErrorCode =

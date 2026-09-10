@@ -57,18 +57,22 @@ export function goalPhaseLabel(phase: string): string {
   }
 }
 
-/** 顶栏连接状态点的颜色——一律用 --vscode-* 主题变量 */
-export function connectionColor(connection: string): string {
+/**
+ * 顶栏连接状态点的 class 后缀（颜色一律用 --vscode-* 主题变量）。
+ * 用 class 而非内联 style：CSP 已收紧到 style-src 仅 nonce + cspSource，
+ * 内联 style 属性会被拦截。
+ */
+export function connectionStateClass(connection: string): string {
   switch (connection) {
     case 'ready':
-      return 'var(--vscode-charts-green, var(--vscode-descriptionForeground))';
+      return 'conn-ready';
     case 'error':
-      return 'var(--vscode-errorForeground, var(--vscode-charts-red))';
+      return 'conn-error';
     case 'offline':
-      return 'var(--vscode-charts-red, var(--vscode-descriptionForeground))';
+      return 'conn-offline';
     case 'connecting':
-      return 'var(--vscode-charts-yellow, var(--vscode-descriptionForeground))';
+      return 'conn-connecting';
     default:
-      return 'var(--vscode-descriptionForeground)';
+      return 'conn-idle';
   }
 }

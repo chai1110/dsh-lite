@@ -5,6 +5,48 @@
 
 ## 未发布
 
+### M15 全量代码核查与缺陷修复（19 项）
+- 起因：对全项目做一次彻底走查（42 文件 / 5,162 行），所有判定均以实证脚本验证而非静态推断。
+  报告见 `docs/audit/2026-09-09-代码核查报告.md`。
+- **错误透明度（最影响排障）**
+  - **F**：`unary()` 原先抛裸对象 `{kind,status,body}`，导致全部 `catch { String(err) }` 记出
+    `[object Object]`——401 的「reopen the URL printed by dsh web」恰在 body 里，每次排障都在盲飞。
+    改为 `RpcHttpError extends Error`，`message` 含 status 与前 300 字 body。
+- **启动/停止生命周期**
+  - **K**：端口探测最坏 50×3000ms=150s，远超 15s 启动超时（10 倍）。新增单次探测 400ms +
+    整体预算 8000ms，`findFreePort` 超预算即返回 null。
+  - **H**：端口回退曾写回 `this.opts`，造成配置永久漂移（用户改设置不生效，须重载扩展）。
+    改为经 `doStart(rounds, preferredPort)` 参数传递，不再触碰 opts。
+  - **I**：`for(;;)` 等待循环不检查 `disposed`，停用扩展后仍空转到 deadline 并可能重启子进程。
+  - **J**：旧轮次 child 的延迟 `error` 事件会污染新进程状态，加 `this.child !== child` 守卫。
+  - **O**：`migration.ts` 的 `readdirSync` 无 try/catch（上方 `existsSync` 有守卫），
+    权限异常会让整个 `activate()` 失败；已加守卫，并在 `extension.ts` 对迁移调用兜底。
+- **UI 正确性**
+  - **T**：`MsgRow` 的 `useState` 位于三个 early return 之后（Hooks 规则违规）
+    ——当前因 key=`s${seq}` 且 kind 不可变而恰好不触发，但属定时炸弹。hook 提到函数首行。
+  - **U**：`App` 的 `if (mismatch)` 早退绕过其后的 5 个 hook（2×useMemo + 2×useEffect），
+    一旦触发协议不匹配即白屏（18→13 hooks）。早退下移到所有 hook 之后。
+  - **M**：空白标题（`"   "` 是真值）不走 fallback，历史下拉出现无法辨识的空白行；改为 `trim()` 兜底。
+- **资源与健壮性**
+  - **B/C**：mux `close()` 未置空 socket（旧 socket 延迟 close 会改错新连接状态）→ 置 null + 事件守卫；
+    `streamId` 由 8 位截断（32bit，碰撞即串帧）改为全量 UUID。
+  - **D**：`$events` 应答 Promise 无超时，服务端静默时永久悬挂 → 加 8s 兜底。
+  - **Q**：配置改动原先既不生效也无提示 → 注册 `onDidChangeConfiguration`，连接相关键提示重载窗口
+    （可一键执行），其它键立即重发状态。
+  - **R/S**：迁移的 SQL 拼接加 `ALLOWED_KEYS` 白名单校验；CSP 去掉 `style-src 'unsafe-inline'`
+    （唯一内联 style 改为 class），`fullCss` 的 `<style>` 补 nonce。
+  - **G/P**：删除死字段 `owned`、死函数 `needsMigration`、死状态 `'closing'`。
+  - **噪音**：`goal/change` 不再落「目标已更新」状态行（目标周期内高频推送，会把消息流刷成墙），
+    仅折叠进 goal dock 投影；`textOf` 支持嵌套块（`chunk={type:'text',text}`）不再退化为 JSON。
+- **测试基建（本次新增，此前 webview 侧零测试）**
+  - `test/hooks-order.test.ts`：静态守护 hooks 顺序 + 禁止内联 style。
+  - `test/webview-render.test.tsx`：jsdom + react-dom 18 真实客户端渲染（各 kind、折叠、流式、增删）。
+  - `test/unary.test.ts`：守护错误形态可读。
+  - `scripts/build.mjs` 支持 `.test.tsx`；`.vscodeignore` 排除 `out/test/**`（vsix 由 463 条目降到 18）。
+  - **测试有效性已自证**：临时把 F/T 缺陷改回，对应测试立即失败。
+- 验证：typecheck 通过；单测 **100 tests / 97 pass / 0 fail / 3 skipped**；
+  E2E 真实 dsh 三次 boot **3/3**；`dsh-lite.vsix` 434.98 KB。
+
 ### M14 代码规整：分层清晰、职责单一（不改变行为）
 - 目的：让模块边界一眼能看清，排查问题时知道该翻哪个文件。
 - **src/ 重组**：

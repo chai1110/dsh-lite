@@ -39,14 +39,16 @@ export function getHtml(
   const csp = [
     "default-src 'none'",
     `script-src ${webview.cspSource} 'nonce-${nonce}'`,
-    `style-src ${webview.cspSource} 'unsafe-inline'`,
+    // 不给 'unsafe-inline'：所有 <style> 都带 nonce，内联 style 属性已改为 class（见 styles.css）
+    `style-src ${webview.cspSource} 'nonce-${nonce}'`,
     `font-src ${webview.cspSource}`, // M9：codicon 图标字体
     `img-src ${webview.cspSource} data:`,
   ].join('; ');
 
   // M13：整页模式把内容约束为居中阅读列（避免全宽拉伸），背景切编辑器底色，左右加细分隔
+  // 注意：<style> 必须带 nonce，否则会被上面收紧后的 CSP 拦截
   const fullCss = full
-    ? `<style>
+    ? `<style nonce="${nonce}">
       body.dsh-full {
         background-color: var(--vscode-editor-background, var(--vscode-sideBar-background));
       }

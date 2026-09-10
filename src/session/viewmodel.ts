@@ -249,9 +249,12 @@ export class SessionViewModel {
       return true;
     }
     if (t === 'goal/change') {
-      // M6d：goal/change 是整快照（最新一条即当前态；clear 为墓碑）——折叠进 goal 投影
+      // M6d：goal/change 是整快照（最新一条即当前态；clear 为墓碑）——折叠进 goal 投影。
+      // 不落状态行：它在目标周期内高频推送，落行会把消息流刷成「目标已更新」墙；
+      // 当前态由 goal dock 展示，故折叠后直接返回（emit 让 dock 刷新）。
       this.foldGoal(data);
-      // 仍落一条状态行（历史可读），继续走到 status 分支
+      this.emit();
+      return false;
     }
     const status = statusLineOf(t);
     if (status) {

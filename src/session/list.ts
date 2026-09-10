@@ -35,7 +35,8 @@ export async function listSessions(
     .filter((s) => Boolean(s.sessionId))
     .map((s): SessionBrief => ({
       sessionId: s.sessionId,
-      title: s.projections?.values?.title || shortId(s.sessionId),
+      // 空白标题（"   "/"\n"）是真值，`||` 不会兜底 → 历史下拉会出现无法辨识的空白行，故先 trim
+      title: s.projections?.values?.title?.trim() || shortId(s.sessionId),
       updatedAt: s.updatedAt ?? 0,
       running: Boolean(s.running),
       ...(s.cwd ? { cwd: s.cwd } : {}),

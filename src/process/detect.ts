@@ -67,15 +67,31 @@ export function extractDshWebUrl(text: string): string | null {
 /** 端口被占用时自动替换的候选尝试次数（从原端口 +1 起依次探测） */
 export const PORT_FALLBACK_ATTEMPTS = 50;
 
-/** 从 startPort+1 起依次探测，返回第一个「未运行」的端口号；全部被占/越界返回 null */
+/**
+ * 单次端口探测超时。本机 127.0.0.1 上「未监听」是瞬时 ECONNREFUSED（毫秒级返回），
+ * 只有网络栈异常才会等满超时——故取远小于启动超时的值，避免 50 × 3000ms = 150s 的最坏等待
+ * （对照 manager 的 DEFAULT_START_TIMEOUT_MS = 15000）。
+ */
+export const PORT_PROBE_TIMEOUT_MS = 400;
+
+/** 端口回退探测的整体时间预算；超预算即放弃回退（交上层报 portOccupied），防止拖垮启动等待 */
+export const PORT_PROBE_BUDGET_MS = 8000;
+
+/**
+ * 从 startPort+1 起依次探测，返回第一个「未运行」的端口号；全部被占/越界/超预算返回 null。
+ * budgetMs 给定时为整体时间预算，超过立即返回 null。
+ */
 export async function findFreePort(
   host: string,
   startPort: number,
   attempts: number,
   probeImpl: (host: string, port: number, timeoutMs?: number) => Promise<ProbeResult> = probeService,
   timeoutMs?: number,
+  budgetMs?: number,
 ): Promise<number | null> {
+  const startedAt = Date.now();
   for (let offset = 1; offset <= attempts; offset++) {
+    if (budgetMs !== undefined && Date.now() - startedAt > budgetMs) return null;
     const candidate = startPort + offset;
     if (candidate > 65535) break;
     const result = await probeImpl(host, candidate, timeoutMs);

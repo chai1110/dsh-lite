@@ -1,6 +1,12 @@
 // src/process/manager.ts — 服务层状态机：探测 → 自起 → 等令牌地址 → ready（纯模块，依赖注入）
 // 依据 docs/api/connection.md §3；与 0.5.1 manager.ts 的差异（不复用外部实例 / 无 authproxy / 错误用 code）见该文档附录 A。
-import { extractDshWebUrl, findFreePort, PORT_FALLBACK_ATTEMPTS } from './detect';
+import {
+  extractDshWebUrl,
+  findFreePort,
+  PORT_FALLBACK_ATTEMPTS,
+  PORT_PROBE_BUDGET_MS,
+  PORT_PROBE_TIMEOUT_MS,
+} from './detect';
 import type { ChildProcessLike, ProcessRunner } from './process';
 import type { ProbeResult, ServiceErrorCode, ServiceSnapshot, ServiceState } from './types';
 
@@ -47,7 +53,7 @@ export class ServiceManager {
     private opts: ManagerOptions,
     private deps: ManagerDeps,
   ) {
-    this.snapshot = { state: 'idle', authUrl: null, port: opts.port, errorCode: null, owned: false };
+    this.snapshot = { state: 'idle', authUrl: null, port: opts.port, errorCode: null };
     process.once('exit', this.parentExitHook);
   }
 
@@ -114,10 +120,13 @@ export class ServiceManager {
    * 完整启动流程：探测 → 自起（被占则回退空闲端口）→ 从 stdout 解析令牌地址 → ready。
    * 与 0.5.1 不同：任何探测结果都不复用外部实例（决策 A，见 docs/api/connection.md §2）。
    */
-  private async doStart(rounds: number): Promise<ServiceSnapshot> {
+  private async doStart(rounds: number, preferredPort?: number): Promise<ServiceSnapshot> {
     this.set({ state: 'detecting', authUrl: null, errorCode: null });
     const timeoutMs = this.deps.startTimeoutMs ?? DEFAULT_START_TIMEOUT_MS;
     const pollMs = this.opts.pollMs ?? DEFAULT_POLL_MS;
+    // 端口来源：本轮首选（重启轮次传入）> 用户配置端口。
+    // 绝不写回 this.opts —— 否则端口回退会污染配置，用户改设置再也不生效（须重载扩展）。
+    const basePort = preferredPort ?? this.opts.port;
     /** 统一失败出口：确保已 spawn 的子进程被清理，不留孤儿/占用端口与锁 */
     const fail = (errorCode: ServiceErrorCode): ServiceSnapshot => {
       if (this.child) {
@@ -134,23 +143,25 @@ export class ServiceManager {
     };
 
     // 1) 探测目标端口：空闲直接占用；被占（任意类型）→ 回退首个空闲端口
-    const probe = await this.deps.probeService(this.opts.host, this.opts.port, timeoutMs > 3000 ? 3000 : timeoutMs);
-    let target = this.opts.port;
+    const probe = await this.deps.probeService(this.opts.host, basePort, timeoutMs > 3000 ? 3000 : timeoutMs);
+    let target = basePort;
     if (probe !== 'down') {
       if (!this.opts.autoStart) {
         return fail('portOccupied');
       }
       const fallback = await findFreePort(
         this.opts.host,
-        this.opts.port,
+        basePort,
         PORT_FALLBACK_ATTEMPTS,
         this.deps.probeService,
+        PORT_PROBE_TIMEOUT_MS,
+        PORT_PROBE_BUDGET_MS,
       );
       if (fallback === null) {
         return fail('portOccupied');
       }
       if (this.stopRequested) return this.getSnapshot();
-      this.deps.log(`[process] 端口 ${this.opts.port} 不可用（${probe}），本次会话改用 ${fallback}`);
+      this.deps.log(`[process] 端口 ${basePort} 不可用（${probe}），本次会话改用 ${fallback}`);
       target = fallback;
     }
     if (!this.opts.autoStart) {
@@ -181,6 +192,8 @@ export class ServiceManager {
     if (logLastStart) this.deps.log(`[process] 启动命令: ${logLastStart.command} ${logLastStart.args.join(' ')}`);
 
     child.on('error', (err) => {
+      // 旧轮次的 child 延迟报错：此时 this.child 已指向新进程，直接丢弃以免污染新状态
+      if (this.child !== child) return;
       const code = (err as NodeJS.ErrnoException).code;
       this.deps.log(`[process] ${err.message} (code=${code})`);
       if (code === 'ENOENT') {
@@ -198,7 +211,7 @@ export class ServiceManager {
       // 就绪后子进程意外退出：回 idle（连接层据此判 offline）；启动期间退出由 waiting 循环处理
       if (this.snapshot.state === 'ready' && this.child === child) {
         this.child = null;
-        this.set({ state: 'idle', authUrl: null, errorCode: null, owned: false });
+        this.set({ state: 'idle', authUrl: null, errorCode: null });
         return;
       }
       childExited = true;
@@ -221,7 +234,8 @@ export class ServiceManager {
     this.set({ state: 'waiting' });
     const deadline = Date.now() + timeoutMs;
     for (;;) {
-      if (spawnFailed || this.stopRequested) return this.getSnapshot();
+      // disposed：扩展已卸载/停用，不必再等（否则会空转到 deadline，并可能重启出新子进程）
+      if (this.disposed || spawnFailed || this.stopRequested) return this.getSnapshot();
       if (childExited) {
         this.child = null;
         // 启动期崩溃自愈：换空闲端口重启（最多 3 轮）；轮数用尽报 startCrashed
@@ -231,11 +245,13 @@ export class ServiceManager {
             target,
             PORT_FALLBACK_ATTEMPTS,
             this.deps.probeService,
+            PORT_PROBE_TIMEOUT_MS,
+            PORT_PROBE_BUDGET_MS,
           );
           if (fallback !== null && !this.stopRequested) {
             this.deps.log(`[process] 子进程启动期退出（端口 ${target}），改用 ${fallback} 重启`);
-            this.opts = { ...this.opts, port: fallback };
-            return this.doStart(rounds + 1);
+            // 新端口只经参数传递，不写回 this.opts（避免配置漂移）
+            return this.doStart(rounds + 1, fallback);
           }
         }
         this.set({ state: 'failed', errorCode: 'startCrashed' });

@@ -34,6 +34,23 @@
   flex: 0 0 auto;
 }
 
+/* 连接状态点配色（替代内联 style：CSP 已收紧，内联 style 属性会被拦截） */
+.conn-dot.conn-ready {
+  background: var(--vscode-charts-green, var(--vscode-descriptionForeground));
+}
+.conn-dot.conn-error {
+  background: var(--vscode-errorForeground, var(--vscode-charts-red));
+}
+.conn-dot.conn-offline {
+  background: var(--vscode-charts-red, var(--vscode-descriptionForeground));
+}
+.conn-dot.conn-connecting {
+  background: var(--vscode-charts-yellow, var(--vscode-descriptionForeground));
+}
+.conn-dot.conn-idle {
+  background: var(--vscode-descriptionForeground);
+}
+
 /* 消息区：占满剩余空间，可滚动 */
 .messages {
   flex: 1 1 auto;

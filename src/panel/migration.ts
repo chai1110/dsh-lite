@@ -72,9 +72,27 @@ function locateSqlite(): string | null {
   return found ? found : null;
 }
 
+/**
+ * key 白名单：本模块只操作这三个编译期常量，任何其它 key 一律拒绝。
+ * 目的：SQL 是拼字符串下发给 sqlite3 CLI 的，白名单把「将来有人把外部输入传进来」
+ * 这条路彻底堵死（配合 sqlLiteral 的转义，双重保险）。
+ */
+const ALLOWED_KEYS = new Set<string>([EXPLORER_KEY, ...LEGACY_CONTAINER_STATE_KEYS]);
+
+/** SQL 单引号字面量：白名单校验 + 转义。仅接受本模块声明的常量 key。 */
+function sqlLiteral(key: string): string {
+  if (!ALLOWED_KEYS.has(key)) throw new Error(`拒绝非预期 key（不在白名单内）: ${key}`);
+  return `'${key.replace(/'/g, "''")}'`;
+}
+
+/** value 字面量：值来自库内 JSON 或 JSON.stringify，这里只做标准转义 */
+function sqlValueLiteral(value: string): string {
+  return `'${value.replace(/'/g, "''")}'`;
+}
+
 /** 读 ItemTable 中某 key 的 value，原文返回（不含末尾换行）。 */
 function readValue(sqliteBin: string, dbPath: string, key: string): string | null {
-  const sql = `SELECT value FROM ItemTable WHERE key = '${key.replace(/'/g, "''")}';\n`;
+  const sql = `SELECT value FROM ItemTable WHERE key = ${sqlLiteral(key)};\n`;
   const res = spawnSync(sqliteBin, [`file:${dbPath}?mode=ro`], {
     input: sql,
     encoding: 'utf8',
@@ -93,12 +111,12 @@ function mutateDb(sqliteBin: string, dbPath: string, mutate: (conn: SqliteConn) 
     const conn: SqliteConn = {
       read(key: string): string | null { return readValue(sqliteBin, tmp, key); },
       update(key: string, value: string): boolean {
-        const sql = `UPDATE ItemTable SET value = '${value.replace(/'/g, "''")}' WHERE key = '${key.replace(/'/g, "''")}';\n`;
+        const sql = `UPDATE ItemTable SET value = ${sqlValueLiteral(value)} WHERE key = ${sqlLiteral(key)};\n`;
         const res = spawnSync(sqliteBin, [tmp], { input: sql, encoding: 'utf8', timeout: 3000 });
         return res.status === 0;
       },
       delete(key: string): boolean {
-        const sql = `DELETE FROM ItemTable WHERE key = '${key.replace(/'/g, "''")}';\n`;
+        const sql = `DELETE FROM ItemTable WHERE key = ${sqlLiteral(key)};\n`;
         const res = spawnSync(sqliteBin, [tmp], { input: sql, encoding: 'utf8', timeout: 3000 });
         return res.status === 0;
       },
@@ -175,12 +193,6 @@ function purgeLegacyInDb(sqliteBin: string, dbPath: string, log: Logger): { touc
   return { touched: false, details };
 }
 
-export function needsMigration(_ctx: vscode.ExtensionContext): boolean {
-  // 新版探测：判 v3 flag 是否置位。
-  // 保留函数签名供兼容；实际 runViewLocationMigration 内部已经 gate。
-  return false;
-}
-
 /**
  * 一次性迁移：从所有 workspaceStorage/<hash>/state.vscdb 里清除 M13.1 之前的视图位置残留。
  * 仅在 globalState flag 未置位时执行；执行后将 flag 置位。
@@ -209,14 +221,30 @@ export async function runViewLocationMigration(
 
   log('清理 M13.1 之前的视图位置残留…');
 
+  // 目录可读性单独守卫：existsSync 通过 ≠ readdirSync 成功（EACCES / 并发删除 / 网络盘抖动），
+  // 而这里抛错会冒泡到 activate() 让整个扩展激活失败——非关键迁移不该拖垮扩展。
+  // 不置 MIGRATION_KEY：属暂时性故障，下次启动重试。
+  let entries: string[];
+  try {
+    entries = fs.readdirSync(info.storageRoot);
+  } catch (err) {
+    log(`跳过视图位置清理：存储目录不可读 ${String(err)}`);
+    return;
+  }
+
   let touched = 0;
   let scanned = 0;
-  for (const wsHash of fs.readdirSync(info.storageRoot)) {
+  for (const wsHash of entries) {
     const db = path.join(info.storageRoot, wsHash, 'state.vscdb');
-    if (!fs.existsSync(db)) continue;
-    scanned++;
-    const { touched: t } = purgeLegacyInDb(info.sqliteBin, db, log);
-    if (t) touched++;
+    // 单个工作区失败不中断整轮（同上：不让非关键迁移拖垮激活）
+    try {
+      if (!fs.existsSync(db)) continue;
+      scanned++;
+      const { touched: t } = purgeLegacyInDb(info.sqliteBin, db, log);
+      if (t) touched++;
+    } catch (err) {
+      log(`跳过工作区 ${wsHash}: ${String(err)}`);
+    }
   }
 
   log(`视图位置清理完成：扫描 ${scanned} 个工作区，改动 ${touched} 个`);

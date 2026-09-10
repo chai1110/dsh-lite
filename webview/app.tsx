@@ -84,19 +84,6 @@ export function App(): ReactElement {
     if (el) el.scrollTop = el.scrollHeight;
   }, [state.messages]);
 
-  // 协议版本不匹配：整面板提示，不做任何业务
-  if (mismatch) {
-    const banner =
-      mismatch === 'reload' ? '请重载窗口以更新面板' : '面板版本高于扩展，请更新 DSH Lite';
-    return (
-      <div className="mismatch">
-        <div className="mismatch-banner" role="alert">
-          {banner}
-        </div>
-      </div>
-    );
-  }
-
   // ===== 3. 派生数据 =====
   const ready = state.connection === 'ready';
   const active = state.sessions.find((s) => s.sessionId === state.activeSessionId) ?? null;
@@ -172,6 +159,20 @@ export function App(): ReactElement {
     const order = ['今天', '昨天', '最近 7 天', '更早'];
     return order.filter((k) => map.has(k)).map((k) => ({ label: k, rows: map.get(k)! }));
   }, [activeSessions]);
+
+  // 协议版本不匹配：整面板提示，不做任何业务。
+  // 必须放在所有 hook 调用之后：提前 return 会改变同一实例的 hook 数量 → React 报错白屏。
+  if (mismatch) {
+    const banner =
+      mismatch === 'reload' ? '请重载窗口以更新面板' : '面板版本高于扩展，请更新 DSH Lite';
+    return (
+      <div className="mismatch">
+        <div className="mismatch-banner" role="alert">
+          {banner}
+        </div>
+      </div>
+    );
+  }
 
   // ===== 4. 回调 =====
   const closeSlash = (): void => {

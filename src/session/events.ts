@@ -31,6 +31,12 @@ export function textOf(data: unknown): string {
   for (const key of ['text', 'chunk', 'message', 'chunkText', 'contentText']) {
     const v = d[key];
     if (typeof v === 'string' && v) return v;
+    // 嵌套块（如 chunk = {type:'text', text:'…'}）：取其中的 text，否则会一路走到
+    // JSON.stringify 把原始 JSON 糊进聊天
+    if (v && typeof v === 'object' && !Array.isArray(v)) {
+      const nested = (v as Record<string, unknown>)['text'];
+      if (typeof nested === 'string' && nested) return nested;
+    }
   }
   const content = d['content'];
   if (Array.isArray(content)) {
@@ -88,7 +94,8 @@ const STATUS_LABEL: Record<string, string> = {
   'approval/decided': '审批已处理',
   'approval/policy': '审批策略更新',
   // 目标 / 计划 / 权限 / 模型等会话级状态（M6 提供入口，先不淹没消息流）
-  'goal/change': '目标已更新',
+  // 注意：goal/change 不在此列——它是整快照且目标周期内高频推送，落状态行会刷成「目标已更新」墙；
+  //       其当前态由 viewmodel 折叠进 goal 投影（dock 展示）。
   'plan/mode': '计划模式',
   'permission/preset': '权限档位变更',
   'sandbox/mode': '沙箱模式变更',

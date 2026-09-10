@@ -2,7 +2,7 @@
 import type { ReactElement } from 'react';
 
 import { Icon } from '../lib/codicon';
-import { connectionColor } from '../lib/util';
+import { connectionStateClass } from '../lib/util';
 
 interface TopbarProps {
   ready: boolean;
@@ -39,9 +39,8 @@ export function Topbar(props: TopbarProps): ReactElement {
       </div>
       <div className="topbar-right">
         <span
-          className="conn-dot"
+          className={`conn-dot ${connectionStateClass(connection)}`}
           title={`连接：${connection}`}
-          style={{ background: connectionColor(connection) }}
         />
         <button
           className="btn btn-icon btn-new"

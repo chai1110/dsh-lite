@@ -55,10 +55,10 @@ function makeTestConfig() {
     return null;
   }
   const entryPoints = readdirSync('test', { recursive: true })
-    .filter((f) => typeof f === 'string' && f.endsWith('.test.ts'))
+    .filter((f) => typeof f === 'string' && (f.endsWith('.test.ts') || f.endsWith('.test.tsx')))
     .map((f) => join('test', f));
   if (entryPoints.length === 0) {
-    log('test/ 下没有 *.test.ts，跳过测试构建');
+    log('test/ 下没有 *.test.ts(x)，跳过测试构建');
     return null;
   }
   return {
@@ -69,7 +69,10 @@ function makeTestConfig() {
     platform: 'node',
     format: 'cjs',
     target: 'node18',
-    external: ['vscode', 'bufferutil', 'utf-8-validate'],
+    // webview 组件测试用 .tsx：需要与 webview bundle 一致的自动 JSX 运行时
+    jsx: 'automatic',
+    // jsdom 必须 external：它按相对路径读自带的 default-stylesheet.css，打包后会找不到
+    external: ['vscode', 'bufferutil', 'utf-8-validate', 'jsdom'],
     sourcemap: true,
     logLevel: 'warning',
   };

@@ -21,7 +21,7 @@ export type ClientFrame =
   | { type: 'open'; streamId: string; endpoint: string; payload: { args: Record<string, unknown> } }
   | { type: 'cancel'; streamId: string };
 
-export type MuxState = 'idle' | 'connecting' | 'open' | 'closing' | 'closed';
+export type MuxState = 'idle' | 'connecting' | 'open' | 'closed';
 
 /** 打开一条流返回的句柄：事件回调式，替代 probe 的「收集数组」 */
 export interface MuxStream<T = unknown> {
@@ -141,9 +141,13 @@ export class MuxClient {
       });
       socket.on('close', () => {
         clearTimeout(timer);
+        // 已被新连接替换：忽略旧 socket 的延迟 close 事件，否则会把新连接状态改错
+        if (this.socket !== socket) return;
         const wasOpen = this.state === 'open';
         this.setState('closed');
         for (const s of this.streams.values()) s.settleError({ code: 'connection-closed', message: '连接已关闭' });
+        // 显式收尾：settleError 会经回调删除各自条目，这里兜底清空，避免任何路径残留
+        this.streams.clear();
         const expected = this.expectedClose;
         this.expectedClose = false;
         if (wasOpen && !expected) {
@@ -195,14 +199,22 @@ export class MuxClient {
 
   close(): void {
     this.expectedClose = true;
-    if (this.socket) {
+    const socket = this.socket;
+    // 断开引用：旧 socket 后续的 close 事件会被上面的守卫忽略，不会污染下一次连接
+    this.socket = null;
+    if (socket) {
       try {
-        this.socket.close();
+        socket.close();
       } catch {
         /* 忽略 */
       }
     }
-    this.setState('closing');
+    // 主动关闭：立即本地终止所有流（否则 close 事件被守卫拦掉后，这些流会一直悬挂）
+    for (const s of this.streams.values()) {
+      s.settleError({ code: 'connection-closed', message: '连接已关闭' });
+    }
+    this.streams.clear();
+    this.setState('closed');
   }
 
   private setState(s: MuxState): void {
@@ -217,7 +229,8 @@ export class MuxClient {
 }
 
 class MuxStreamImpl<T> implements MuxStream<T> {
-  readonly streamId = `s${randomUUID().slice(0, 8)}`;
+  // 全量 UUID：此前截断到 8 位（32bit），并发多流时存在碰撞可能，一旦碰撞会互相串帧
+  readonly streamId = `s${randomUUID()}`;
   private itemCbs = new Set<(v: T) => void>();
   private endCbs = new Set<() => void>();
   private errorCbs = new Set<(e: MuxError) => void>();

@@ -166,7 +166,7 @@ test('command/done 无配对 run（快照截断）时兜底独立条目', () => 
   assert.equal(s.entries[0].cmdOk, false);
 });
 
-test('goal/change 折叠为当前目标投影（整快照语义）并保留状态行', () => {
+test('goal/change 折叠为当前目标投影（整快照语义）且不落状态行', () => {
   const vm = new SessionViewModel();
   vm.applyEvent(
     evt({
@@ -189,8 +189,8 @@ test('goal/change 折叠为当前目标投影（整快照语义）并保留状�
   assert.equal(goal.objective, '跑 5 公里');
   assert.equal(goal.phase, 'active');
   assert.equal(goal.revision, 1);
-  // 状态行保留（历史可读）
-  assert.ok(vm.getState().entries.some((e) => e.kind === 'status' && e.text === '目标已更新'));
+  // 不落状态行：该事件高频推送，落行会刷成「目标已更新」墙；当前态由 goal dock 展示
+  assert.equal(vm.getState().entries.length, 0);
 });
 
 test('goal/change clear 墓碑清空投影；reset 也清空', () => {

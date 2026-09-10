@@ -8,6 +8,8 @@ test/**
 tools/**
 node_modules/**
 scripts/**
+# 测试产物不进插件包（out/ 下只保留 extension.js / webview.js / webview.css 三个运行时文件）
+out/test/**
 tsconfig.json
 *.vsix
 .DS_Store

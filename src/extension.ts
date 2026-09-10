@@ -37,7 +37,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   log('扩展已激活');
 
   // 2. 一次性迁移（旧 view/container ID 留下的位置污染）
-  await runViewLocationMigration(context, log);
+  //    非关键操作：任何异常都不该阻断扩展激活（否则表现为「装完但侧栏空 / 命令没注册」）
+  try {
+    await runViewLocationMigration(context, log);
+  } catch (err) {
+    log(`视图位置迁移失败（已忽略，不影响扩展功能）: ${String(err)}`);
+  }
 
   // 3. provider（先构造，注册 view 时由 VS Code 触发 resolveWebviewView）
   const provider = new DshLitePanelProvider(context.extensionUri, log);
@@ -81,6 +86,29 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
   // 6. 命令注册（开左/开右/整页）
   registerPanelCommands(context, provider);
+
+  // 7. 配置变更：
+  //    - 连接相关键（端口/可执行路径/自启/工作区根）在装配期已固化，需重载窗口才生效 → 明确告知用户
+  //    - 其它键（如 composerEnterBehavior）直接在下次状态下发时生效 → 主动重发一次
+  const AFFECTS_CONNECTION = [
+    'dshLite.executablePath',
+    'dshLite.autoStart',
+    'dshLite.advanced.port',
+    'dshLite.workspaceRootIndex',
+  ];
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeConfiguration((e) => {
+      if (AFFECTS_CONNECTION.some((k) => e.affectsConfiguration(k))) {
+        void vscode.window
+          .showInformationMessage('DSH Lite：连接相关设置已更改，需重载窗口后生效。', '重载窗口')
+          .then((pick) => {
+            if (pick === '重载窗口') void vscode.commands.executeCommand('workbench.action.reloadWindow');
+          });
+        return;
+      }
+      provider.republish();
+    }),
+  );
 }
 
 export async function deactivate(): Promise<void> {
