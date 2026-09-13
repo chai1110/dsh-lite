@@ -1,14 +1,20 @@
 // src/session/commands.ts — 斜杠命令平面（M6b）
 // 契约（装机包 dsh-commands/typert.remote-client.d.ts + 活体 probe 实证）：
-//   commands/list(agentId)          → CommandDescriptor[]   {name,description,input?:{hint,images?}}
-//   commands/execute(agentId,line,images) → CommandExecution | undefined
+//   commands/list(agentId)          → CommandDescriptor[]   {name,description,input?:{hint,attachments?}}
+//   commands/execute(agentId,line,submittedAttachments) → CommandExecution | undefined
 //     line 是含前导 '/' 的整行（如 '/goal 修复登录页'）；undefined = 未知/格式错误命令。
 // 信封均为扁平 args（无 request 包装），见 docs/design/命令与审批与目标.md §1。
+//
+// ⚠️ 0.1.5 破坏性改名（0.1.2-rc.1 → 0.1.5-rc.1，务必按新名传）：
+//   第三参       images            → submittedAttachments
+//   input 描述符  input.images     → input.attachments
+//   旧名会被 typert 网关拒为 gateway/arguments-invalid
+//   （missing "submittedAttachments"; unexpected "images"）。
 import { isRpcOk, unary } from '../rpc/unary';
 
 export interface CommandInputDescriptor {
   hint?: string;
-  images?: boolean;
+  attachments?: boolean;
 }
 
 /** 一个可发现的斜杠命令（与 dsh-commands/types CommandDescriptor 对齐） */
@@ -59,7 +65,7 @@ export async function runCommand(
   deps: CommandApiDeps,
   sessionId: string,
   line: string,
-  images: readonly unknown[] = [],
+  submittedAttachments: readonly unknown[] = [],
 ): Promise<CommandExecutionResult> {
   const res = await unary<{
     commandId?: string;
@@ -68,7 +74,7 @@ export async function runCommand(
     deps.origin,
     deps.cookie,
     'commands/execute',
-    { agentId: sessionId, line, images },
+    { agentId: sessionId, line, submittedAttachments },
     15000,
     deps.fetchImpl,
   );

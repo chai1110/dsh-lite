@@ -5,6 +5,26 @@
 
 ## 未发布
 
+### dsh 0.1.5 兼容：`commands/execute` 第三参改名
+- **破坏性契约变更**（官方 0.1.2-rc.1 → 0.1.5-rc.1）：typert 网关对 args **按字段名校验**，
+  旧名会被直接拒为 `gateway/arguments-invalid`：
+  - `commands/execute` 第三参 `images` → **`submittedAttachments`**
+  - `CommandInputDescriptor` 的 `input.images` → **`input.attachments`**
+  - 网关原话：`missing "submittedAttachments"; unexpected "images"`
+- **影响面**：斜杠命令平面（`/goal`、`/help` 等一切 `/` 开头提交）在 0.1.5 上**整体失效**。
+  该缺陷在旧 e2e 里被暴露为 `not ok 8 - M6 真 dsh 命令/目标平面`。
+- **修复**：`src/session/commands.ts` 改发 `submittedAttachments`（默认 `[]`，两处调用方均不传实参，
+  行为不变）；`CommandInputDescriptor` 类型同步改名（无消费方，纯对齐）。
+- **验证（三重）**：
+  1. 真机 e2e（自起隔离 `DSH_HOME` 的 dsh 0.1.5-rc.1）：**100/100 通过**（修复前 99/1）。
+  2. 静态比对装机包 `dsh-commands/lib/typert.remote-client.d.ts` 与
+     `0.1.2-rc.1` 产物：确认改名确由 0.1.5 引入（0.1.2 为 `images`）。
+  3. 逐方法核对其余全部 RPC 参数形状（`session/create|list|prompt|cancel|rename`、
+     `commands/list`、`goals/pause|resume|clear`、`workspace/archiveSession|unarchiveSession`）
+     —— 均与官方 `*.Request` 类型字段逐字一致，无第二处破口。
+- 审计脚本：`tools/probe-contract.mjs`（对运行实例做零副作用参数契约探测；
+  原理：网关 args 校验先于业务查找，用伪造 id 即可判定形状是否被接受）。
+
 ### M15 全量代码核查与缺陷修复（19 项）
 - 起因：对全项目做一次彻底走查（42 文件 / 5,162 行），所有判定均以实证脚本验证而非静态推断。
   报告见 `docs/audit/2026-09-09-代码核查报告.md`。
