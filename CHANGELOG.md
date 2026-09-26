@@ -316,3 +316,12 @@
 - ❌ 新建会话、附加文件、停止、审批等命令（M3/M4）。
 - ❌ 日志面板（M5）。
 - ❌ 设置页（**永久不做**，配置走 VS Code 原生设置或 DSH 网页端）。
+
+## [兼容性记录] — 2026-09-26
+
+- **核对 DSH 0.1.7-rc.2（官方 2026-09-24 发布）——RPC 契约完全兼容，无需代码改动**。
+- 验证方式：`tools/probe-contract.mjs` 真机活体探测（对运行中的 0.1.7-rc.2 实例，launch-token 换 cookie 后逐方法探测参数形状）：
+  - `session/list` ✅ 返回真实数据；`session/rename` / `session/cancel` / `session/prompt` / `commands/list` / `goals/pause|resume|clear` / `workspace/archiveSession|unarchiveSession` 全部 accepted（业务错误均为伪造 id 的预期 not-found）；
+  - `commands/execute` 新字段 `submittedAttachments` ✅ 接受，旧字段 `images` ❌ 按预期被拒（gateway/arguments-invalid）——与 M15 的 0.1.5 适配一致；
+  - `session/create` 形状 accepted（业务错误为伪造 id 无法建目录，预期）。
+- 另：100 例单测全绿（97 pass / 3 skip）；0.1.6/0.1.7 官方变更集中在桌面端与 UI，`/api/remote.mux` 与网关参数校验线格式未变。
