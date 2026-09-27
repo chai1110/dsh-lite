@@ -325,3 +325,4 @@
   - `commands/execute` 新字段 `submittedAttachments` ✅ 接受，旧字段 `images` ❌ 按预期被拒（gateway/arguments-invalid）——与 M15 的 0.1.5 适配一致；
   - `session/create` 形状 accepted（业务错误为伪造 id 无法建目录，预期）。
 - 另：100 例单测全绿（97 pass / 3 skip）；0.1.6/0.1.7 官方变更集中在桌面端与 UI，`/api/remote.mux` 与网关参数校验线格式未变。
+- **真机功能 E2E 3/3 全绿（DSH_LITE_E2E=1，对 0.1.7-rc.2）**：M1 全链路冒烟（自起→令牌→cookie→WS→control 流→session/create+list→杀进程回 idle）、M6 命令/目标平面（commands/list → /goal 执行 → 事件折叠 → goals CAS）、M7 会话命名与归档（中文 rename + archive 往返 + unarchive）。外部带鉴权实例按设计不复用（detect 识别 dsh-auth → 自动换端口自启自有实例），用户环境功能完整。
