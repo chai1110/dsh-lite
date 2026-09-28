@@ -7,6 +7,8 @@ DSH Lite 不像 0.5.1 那样用 iframe 嵌入整站，而是**自研 webview + R
 没有左下角设置齿轮。顶栏只有三样（会话 ▾ / ＋ / ⋯），下面就是输入框；
 一切"配置"走 VS Code 原生设置（`dshLite.*`）或 DSH 网页端。
 
+> **实测适配**：DSH **`0.1.7-rc.2`**（官方最新）——真机功能 E2E 3/3 全绿（M1 全链路 / M6 命令与目标 / M7 归档）+ RPC 契约探针全绿；线格式适配至 0.1.5（M15：`commands/execute` 参数改名等）。
+
 ## 与 dsh-vscode 0.5.1 的区别
 
 | 维度 | dsh-vscode 0.5.1 | DSH Lite |
