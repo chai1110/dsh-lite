@@ -68,3 +68,53 @@ export async function cancelSession(deps: SessionApiDeps, sessionId: string): Pr
     throw new Error(`session/cancel 失败: ${res.error.code} ${res.error.message}`);
   }
 }
+
+/** 模型目录（M16：session/modelCatalog，来自官方方法表） */
+export interface ModelGroup {
+  id: string;
+  name: string;
+  models: { id: string; name: string; reasoning?: { efforts?: { id: string; name: string }[] } }[];
+}
+export interface ModelCatalog {
+  default?: { provider: string; model: string };
+  groups: ModelGroup[];
+}
+
+/** 拉取模型目录（供应商分组 + 各组模型 + 默认模型）。 */
+export async function modelCatalog(deps: SessionApiDeps): Promise<ModelCatalog> {
+  const res = await unary<ModelCatalog>(
+    deps.origin,
+    deps.cookie,
+    'session/modelCatalog',
+    {},
+    10000,
+    deps.fetchImpl,
+  );
+  if (!isRpcOk(res)) {
+    throw new Error(`session/modelCatalog 失败: ${res.error.code} ${res.error.message}`);
+  }
+  if (!res.value || !Array.isArray(res.value.groups)) {
+    throw new Error('session/modelCatalog 返回形状异常');
+  }
+  return res.value;
+}
+
+/** 切换会话模型（M16：session/selectModel）。 */
+export async function selectModel(
+  deps: SessionApiDeps,
+  sessionId: string,
+  provider: string,
+  model: string,
+): Promise<void> {
+  const res = await unary<{ accepted?: boolean }>(
+    deps.origin,
+    deps.cookie,
+    'session/selectModel',
+    { request: { sessionId, provider, model } },
+    15000,
+    deps.fetchImpl,
+  );
+  if (!isRpcOk(res)) {
+    throw new Error(`session/selectModel 失败: ${res.error.code} ${res.error.message}`);
+  }
+}

@@ -15,6 +15,19 @@ export const PROTOCOL_VERSION = 1;
 /** 连接状态：idle=未开始，connecting=连接中，ready=可用，error=出错，offline=断开。 */
 export type ConnectionState = 'idle' | 'connecting' | 'ready' | 'error' | 'offline';
 
+/** 模型条目（M16；来源 session/modelCatalog） */
+export interface ModelOption {
+  provider: string;
+  id: string;
+  name: string;
+}
+/** 供应商分组的模型目录 */
+export interface ModelGroupUi {
+  id: string;
+  name: string;
+  models: ModelOption[];
+}
+
 /** 面板完整状态快照：宿主 → UI 全量下发，UI 不做增量合并。 */
 export interface PanelState {
   connection: ConnectionState;
@@ -29,6 +42,11 @@ export interface PanelState {
   goal?: GoalBrief | null;
   /** 当前会话待应答审批（M6c）；null = 无 */
   approval?: ApprovalView | null;
+  /** 模型目录（M16）：undefined = 未拉取，null = 拉取失败（见 modelsError），数组 = 就绪 */
+  models?: ModelGroupUi[] | null;
+  modelsError?: string | null;
+  /** 当前模型（目录 default 或用户最近一次选择）；null = 未知 */
+  currentModel?: { provider: string; model: string } | null;
   /** 斜杠命令目录（M6b）；undefined = 未拉取/已关闭，null = 拉取中/失败(见 commandsError)，数组 = 就绪 */
   commands?: CommandRow[] | null;
   /** 命令目录拉取失败的原因（仅 commands === null 时有意义） */
@@ -64,7 +82,9 @@ export type UiMessage =
   /** 审批卡按钮（M6c）：allowed-once=允许一次 / rejected=拒绝。 */
   | { type: 'ui/approvalAnswer'; eventId: string; outcome: 'allowed-once' | 'rejected' }
   /** 目标 dock 操作（M6d）：pause/resume/clear 走 goals.*；create 用 ui/promptSubmit('/goal …')。 */
-  | { type: 'ui/goalAction'; action: 'pause' | 'resume' | 'clear' };
+  | { type: 'ui/goalAction'; action: 'pause' | 'resume' | 'clear' }
+  /** 用户在模型选择器里选了模型（M16）：宿主调 session/selectModel 并更新本地态。 */
+  | { type: 'ui/selectModel'; provider: string; model: string };
 
 /** 宿主 → UI。 */
 export type HostMessage =
@@ -96,5 +116,7 @@ export function initialState(): PanelState {
     sessions: [],
     activeSessionId: null,
     messages: [],
+    models: null,
+    currentModel: null,
   };
 }

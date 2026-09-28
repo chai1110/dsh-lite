@@ -17,12 +17,71 @@ interface MessagesProps {
   messages: ViewMessage[];
 }
 
+/** 回合分组：一条用户消息开启一个回合；回合内除最终回复外全部折叠进"已完成工作"。 */
+interface TurnGroup {
+  user: ViewMessage | null;
+  work: ViewMessage[];
+  final: ViewMessage | null;
+}
+
+function groupByTurn(messages: ViewMessage[]): { head: ViewMessage[]; groups: TurnGroup[] } {
+  const head: ViewMessage[] = [];
+  const groups: TurnGroup[] = [];
+  let cur: TurnGroup | null = null;
+  for (const m of messages) {
+    if (m.role === 'user' && (m.kind ?? 'text') === 'text') {
+      if (cur) groups.push(cur);
+      cur = { user: m, work: [], final: null };
+      continue;
+    }
+    if (!cur) {
+      head.push(m);
+      continue;
+    }
+    // 最终回复 = 回合内最后一条纯文本助手消息：新文本到来时，把上一条"终稿"挪进折叠区
+    if (m.role === 'assistant' && (m.kind ?? 'text') === 'text' && cur.final) {
+      cur.work.push(cur.final);
+    }
+    if (m.role === 'assistant' && (m.kind ?? 'text') === 'text') {
+      cur.final = m;
+      continue;
+    }
+    cur.work.push(m);
+  }
+  if (cur) groups.push(cur);
+  return { head, groups };
+}
+
 export function Messages({ messages }: MessagesProps): ReactElement {
+  const { head, groups } = groupByTurn(messages);
   return (
     <>
-      {messages.map((m) => (
+      {head.map((m) => (
         <MsgRow key={m.id} m={m} />
       ))}
+      {groups.map((g, gi) => {
+        const work = g.work;
+        // 纯问答回合（无工具/命令/中间输出）不套折叠，直接渲染
+        const collapsible = work.length > 0;
+        return (
+          <div key={g.user?.id ?? `turn-${gi}`} className="turn-group">
+            {g.user ? <MsgRow m={g.user} /> : null}
+            {collapsible ? (
+              <CollapseRow
+                icon="tools"
+                title={`已完成工作 · ${work.length} 步`}
+              >
+                <div className="turn-work">
+                  {work.map((m) => (
+                    <MsgRow key={m.id} m={m} />
+                  ))}
+                </div>
+              </CollapseRow>
+            ) : null}
+            {g.final ? <MsgRow m={g.final} /> : null}
+          </div>
+        );
+      })}
     </>
   );
 }

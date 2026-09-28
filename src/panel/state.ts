@@ -40,6 +40,19 @@ export function buildPanelState(deps: BuildPanelStateDeps): PanelState {
     state.approval = svc.getPendingApproval();
     if (cmd && cmd.rows !== undefined) state.commands = cmd.rows;
     if (cmd?.error) state.commandsError = cmd.error;
+    // M16：模型目录与当前模型（undefined=未拉取，null=拉取失败）
+    const models = svc.getModels();
+    if (models.catalog !== undefined) {
+      state.models = models.catalog
+        ? models.catalog.groups.map((g) => ({
+            id: g.id,
+            name: g.name,
+            models: g.models.map((m) => ({ provider: g.id, id: m.id, name: m.name })),
+          }))
+        : null;
+    }
+    if (models.error) state.modelsError = models.error;
+    state.currentModel = svc.getCurrentModel();
   }
   if (snap.phase === 'error' || snap.phase === 'offline') {
     const code = snap.errorCode ?? 'err.connectionLost';

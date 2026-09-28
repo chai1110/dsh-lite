@@ -18,7 +18,13 @@ import {
 } from './workspace';
 import { RemoteEventsHub, type ApprovalOutcome, type PendingApprovalRequest } from './events-stream';
 import { SessionController } from './controller';
-import { cancelSession, createSession, promptSession } from './api';
+import {
+  cancelSession,
+  createSession,
+  modelCatalog as modelCatalogRpc,
+  promptSession,
+  selectModel as selectModelRpc,
+} from './api';
 import type { ViewEntry } from './viewmodel';
 
 export interface SessionServiceDeps {
@@ -41,6 +47,11 @@ export class SessionService {
   /** M6b：命令目录（当前会话） */
   private catalog: CatalogState;
   private catalogError: string | null = null;
+  /** M16：模型目录 + 当前模型（模型选择器） */
+  private models: import('./api').ModelCatalog | null = null;
+  private modelsError: string | null = null;
+  private modelsFetching = false;
+  private currentModel: { provider: string; model: string } | null = null;
   /** M6c：$events 实时审批 */
   private hub: RemoteEventsHub | null = null;
   private pendingApprovals = new Map<string, PendingApprovalRequest>();
@@ -159,6 +170,53 @@ export class SessionService {
   /** 当前命令目录（undefined=关，null=拉取中/失败，数组=就绪） */
   getCommandCatalog(): { rows: CommandRow[] | null | undefined; error: string | null } {
     return { rows: this.catalog, error: this.catalogError };
+  }
+
+  // ---------- M16 模型选择器：目录 / 当前模型 / 切换 ----------
+
+  getModels(): { catalog: import('./api').ModelCatalog | null; error: string | null } {
+    return { catalog: this.models, error: this.modelsError };
+  }
+
+  getCurrentModel(): { provider: string; model: string } | null {
+    return this.currentModel;
+  }
+
+  /** 拉取一次模型目录（幂等；失败可由 UI 重试触发再拉）。 */
+  async fetchModels(): Promise<void> {
+    if (this.models && !this.modelsError) return;
+    if (this.modelsFetching) return;
+    const origin = this.conn.getOrigin();
+    const cookie = this.conn.getCookie();
+    if (!origin || !cookie) return;
+    this.modelsFetching = true;
+    this.modelsError = null;
+    this.emit();
+    try {
+      const catalog = await modelCatalogRpc({ origin, cookie });
+      this.models = catalog;
+      if (!this.currentModel && catalog.default) {
+        this.currentModel = { provider: catalog.default.provider, model: catalog.default.model };
+      }
+    } catch (err) {
+      this.models = null;
+      this.modelsError = err instanceof Error ? err.message : String(err);
+      this.deps.log(`[models] 目录拉取失败: ${this.modelsError}`);
+    } finally {
+      this.modelsFetching = false;
+    }
+    this.emit();
+  }
+
+  /** 切换会话模型（session/selectModel），成功后更新本地当前模型。 */
+  async selectModel(provider: string, model: string): Promise<void> {
+    const id = this.activeId;
+    const origin = this.conn.getOrigin();
+    const cookie = this.conn.getCookie();
+    if (!id || !origin || !cookie) throw new Error('会话未就绪，无法切换模型');
+    await selectModelRpc({ origin, cookie }, id, provider, model);
+    this.currentModel = { provider, model };
+    this.emit();
   }
 
   // ---------- M7 会话管理：命名 / 归档 / 取消归档 ----------

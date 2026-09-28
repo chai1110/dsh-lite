@@ -153,6 +153,7 @@ export class DshLitePanelProvider implements vscode.WebviewViewProvider {
       }
       case 'ui/ready':
         this.publish();
+        if (this.service) void this.service.fetchModels().catch(() => {});
         return;
       case 'ui/refresh':
         if (this.conn) {
@@ -212,6 +213,14 @@ export class DshLitePanelProvider implements vscode.WebviewViewProvider {
         return;
       case 'ui/slashClose':
         this.service?.closeSlash();
+        return;
+      case 'ui/selectModel':
+        if (this.service) {
+          void this.service
+            .selectModel(msg.provider, msg.model)
+            .then(() => this.log(`模型已切换: ${msg.provider}/${msg.model}`))
+            .catch((err) => this.log(`模型切换失败: ${String(err)}`));
+        }
         return;
       case 'ui/approvalAnswer':
         if (this.service) {

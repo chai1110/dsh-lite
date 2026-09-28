@@ -308,6 +308,10 @@ export function App(): ReactElement {
         connection={state.connection}
         onToggleDropdown={() => setDropdown((v) => !v)}
         onNewSession={() => post({ type: 'ui/newSession' })}
+        models={state.models}
+        modelsError={state.modelsError}
+        currentModel={state.currentModel}
+        onModelSelect={(provider, model) => post({ type: 'ui/selectModel', provider, model })}
       />
 
       {/* M13.3：任意连接态都可展开（未就绪时下拉顶部显示状态横幅 + 重连） */}

@@ -90,10 +90,11 @@ test('ignorable 事件跳过不渲染', () => {
   assert.equal(vm.getState().lastSeq, 1); // 但 seq 仍推进（去重依据）
 });
 
-test('tool/call 与 tool/result 渲染为 tool 条目', () => {
+test('tool/call 与 tool/result 折叠为单条 tool 条目（0.1.7 官方行为）', () => {
   const vm = new SessionViewModel();
   vm.applyEvent(evt({ type: 'tool/call', seq: 1, data: { name: 'Bash', input: 'ls -la' } }));
   let s = vm.getState();
+  assert.equal(s.entries.length, 1, 'call 单独到达时仍是 1 条');
   assert.equal(s.entries[0].kind, 'tool');
   assert.equal(s.entries[0].toolState, 'call');
   assert.equal(s.entries[0].name, 'Bash');
@@ -101,8 +102,9 @@ test('tool/call 与 tool/result 渲染为 tool 条目', () => {
 
   vm.applyEvent(evt({ type: 'tool/result', seq: 2, data: { text: 'file1\nfile2' } }));
   s = vm.getState();
-  assert.equal(s.entries[1].toolState, 'result');
-  assert.ok(s.entries[1].text.includes('file1'));
+  assert.equal(s.entries.length, 1, 'result 并入 call 行，不新增条目');
+  assert.equal(s.entries[0].toolState, 'done');
+  assert.ok(s.entries[0].resultText?.includes('file1'));
 });
 
 test('tool/result 超长结果截断到 2000 字并加标记', () => {
@@ -183,12 +185,11 @@ test('子代理/团队/钩子/网络请求等内部事件静默不渲染', () =>
   assert.equal(vm.getState().lastSeq, 4);
 });
 
-test('未识别事件折叠为 type 短标签状态行', () => {
+test('未识别事件静默（0.1.7：内部事件不打印，保持对话干净）', () => {
   const vm = new SessionViewModel();
   vm.applyEvent(evt({ type: 'custom/weird', seq: 1 }));
   const s = vm.getState();
-  assert.equal(s.entries[0].kind, 'status');
-  assert.equal(s.entries[0].text, 'weird'); // label() 取最后一段
+  assert.equal(s.entries.length, 0);
 });
 
 test('applyRecords 批量回放 + reset 清空', () => {

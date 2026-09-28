@@ -24,7 +24,7 @@ export interface ViewMessage {
   /** 渲染块：缺省=文本；tool=工具卡；command=斜杠命令气泡（M6b） */
   kind?: 'text' | 'tool' | 'command';
   /** kind === 'tool' 时的阶段（M4：call 展示命令行，result 可折叠展开） */
-  toolState?: 'call' | 'result';
+  toolState?: 'call' | 'result' | 'done';
   /** kind === 'command'：command/run↔done 配对后的状态（M6b） */
   cmdState?: 'run' | 'done';
   cmdOk?: boolean;

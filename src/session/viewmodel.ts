@@ -11,12 +11,14 @@ export type ViewEntryKind = 'user' | 'assistant' | 'tool' | 'command' | 'status'
 export interface ViewEntry {
   seq: number;
   kind: ViewEntryKind;
+  /** 回合号：每条 user/message 递增（webview 按回合分组折叠渲染）；push() 自动盖戳 */
+  turn?: number;
   /** 对 UI 的 role 映射：user/assistant → 对应，其余 system */
   text: string;
   streaming?: boolean;
   /** tool 条目附带 */
   name?: string;
-  toolState?: 'call' | 'result';
+  toolState?: 'call' | 'result' | 'done';
   /** command 条目附带（M6b：command/run↔command/done 按 commandId 配对） */
   commandId?: string;
   cmdState?: 'run' | 'done';
@@ -43,12 +45,30 @@ const TOOL_RESULT_CAP = 2000;
  * 静默前缀：这些事件对聊天无意义（会话生命周期/子代理/团队/钩子/网络请求等内部噪音），
  * 推进 seq 但不产生渲染条目。类型全集以 0.1.2-rc.1 known-event-types.js 实证为准。
  */
-const SILENT_PREFIXES = ['session/', 'subagent/', 'team/', 'hook/', 'request/', 'web/'];
+const SILENT_PREFIXES = [
+	'session/',
+	'subagent/',
+	'team/',
+	'hook/',
+	'request/',
+	'web/',
+	// 0.1.6/0.1.7 新增的内部事件前缀（对聊天无意义，静默）
+	'turn/',
+	'surface/',
+	'goals/',
+	'workspace/',
+	'fileUploads/',
+	'sessionFeedback/',
+	'account/',
+	'compaction/',
+];
 
 export class SessionViewModel {
   private entries: ViewEntry[] = [];
   private seenSeqs = new Set<number>();
   private lastSeq = 0;
+  /** 回合号：user/message 递增；其余事件归属当前回合 */
+  private turnNo = 0;
   private goal: GoalBrief | null = null;
   private listeners = new Set<() => void>();
 
@@ -71,6 +91,7 @@ export class SessionViewModel {
   }
 
   private push(e: ViewEntry): void {
+    e.turn = this.turnNo;
     this.entries.push(e);
   }
 
@@ -86,6 +107,17 @@ export class SessionViewModel {
       const e = this.entries[i];
       if (e.kind === 'assistant') return e;
       if (e.kind === 'user') return null; // 越过当前回合边界
+    }
+    return null;
+  }
+
+  /** 找最近一条尚未拿到结果的 tool/call 条目（tool/result 的配对目标） */
+  private findOpenCall(): ViewEntry | null {
+    for (let i = this.entries.length - 1; i >= 0; i--) {
+      const e = this.entries[i];
+      if (e.kind !== 'tool') continue;
+      if (e.toolState === 'call' && !e.resultText) return e;
+      return null; // 越过最近一条 tool 后不再回看（避免配错更早的调用）
     }
     return null;
   }
@@ -167,6 +199,7 @@ export class SessionViewModel {
 
     const t = evt.type;
     if (t === 'user/message' || t === 'assistant/message') {
+      if (t === 'user/message') this.turnNo += 1;
       const kind = t === 'user/message' ? 'user' : 'assistant';
       const txt = textOf(data);
       // assistant/message 常作为「定稿」：若已有同一回合的流式尾巴且其文本是该消息的前缀，
@@ -208,6 +241,14 @@ export class SessionViewModel {
       const txt = textOf(data);
       // M4 §2.1：上限 2000 字，防大结果每次下发撑爆 postMessage
       const short = txt.length > TOOL_RESULT_CAP ? `${txt.slice(0, TOOL_RESULT_CAP)}…(已截断)` : txt;
+      // 官方行为：结果并进对应的 call 行（一行一工具，默认折叠），不再独立成行
+      const call = this.findOpenCall();
+      if (call) {
+        call.toolState = 'done';
+        call.resultText = short;
+        this.emit();
+        return true;
+      }
       this.push({ seq, kind: 'tool', name: label(t), text: short, toolState: 'result', ts });
       this.emit();
       return true;
@@ -266,10 +307,8 @@ export class SessionViewModel {
     for (const p of SILENT_PREFIXES) {
       if (t.startsWith(p)) return false;
     }
-    // 未识别事件：折叠为简短状态行，避免整条 JSON 糊在聊天里
-    this.push({ seq, kind: 'status', text: label(t), ts });
-    this.emit();
-    return true;
+    // 未识别事件：静默（官方 UI 也不渲染内部事件；打状态行会把对话刷成"乱七八糟"）
+    return false;
   }
 
   /** 快照整体替换（切换会话/重连时用） */

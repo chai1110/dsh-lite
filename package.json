@@ -2,7 +2,7 @@
   "name": "dsh-lite",
   "displayName": "DSH Lite",
   "description": "DeepSeek Harness 的精简 VS Code 侧栏客户端：一页到底，只保留对话、会话与审批。",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "publisher": "chai1110",
   "license": "MIT",
   "repository": {
