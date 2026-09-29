@@ -1,7 +1,7 @@
 # DSH Lite 交接文档（HANDOFF）
 
 > 给一个**完全没有上下文**的新对话快速了解 + 衔接工作用。
-> 最后更新：2026-09-29（0.1.0 iframe 架构重构完成 + dsh 0.2.0-rc.1 升级验证），作者：csl × ZCode。
+> 最后更新：2026-09-29（0.1.0 iframe 架构重构完成 + dsh 0.2.0-rc.2 升级验证），作者：csl × ZCode。
 >
 > 项目一句话：DSH 的轻量 VS Code 侧栏客户端 `chai1110.dsh-lite`——**iframe 嵌入官方界面 + 本地代理**，
 > 只隐藏设置入口；与 `chai1110.dsh-vscode-panel`（0.5.4 fork）共存。
@@ -36,10 +36,10 @@
 ## 2. 当前状态与验证证据（2026-09-29）
 
 - `npm run typecheck` 清零；`npm test` **33 过 / 0 失败 / 1 跳过**（跳过 = 真 dsh 集成，需 `DSH_LITE_E2E=1`）
-- **真机 smoke PASS**（对 launchd 常驻 dsh `0.2.0-rc.1` @3080）：令牌兑换 303 → 代理首页 200 +
+- **真机 smoke PASS**（对 launchd 常驻 dsh `0.2.0-rc.2` @3080；rc.1 亦通过）：令牌兑换 303 → 代理首页 200 +
   `__DSH_BOOT__` + 隐藏设置标记 → WS 升级 **101 完整成功**
 - vsix 已装 VS Code：`chai1110.dsh-lite@0.1.0`（等用户真机验证侧栏/整页/对话/模型切换）
-- 本机 dsh：**0.2.0-rc.1**（next 频道，latest 仍 0.1.7-rc.2），launchd `com.csl.dsh-web` @3080，
+- 本机 dsh：**0.2.0-rc.2**（官方 latest 与 next，2026-09-29 起），launchd `com.csl.dsh-web` @3080，
   9 项补丁已重套（`node --check` 9/9 过；补丁仓库 `tools/dsh-patch.mjs --dry-run` 识别"全部在位"）
 
 ## 3. 下一步
@@ -87,7 +87,7 @@
 ## 6. 用户并行线（非本项目工作）
 
 - 母亲抖音号副业（绿植盆栽方向，橱窗/售卖/流量变现）与用户 30 天减脂方案持续在跟，偏好 A4 可打印。
-- **dsh-custom-patches**：当前基线 **0.2.0-rc.1**（9 项补丁；`tools/dsh-patch.mjs` 推荐安装器）；
+- **dsh-custom-patches**：当前基线 **0.2.0-rc.2**（9 项补丁；`tools/dsh-patch.mjs` 推荐安装器）；
   版本以 tag `version/X` 分支管理。dsh-provider-config：SenseNova 模型模板，默认
   `deepseek-flash`(=V4.1 Flash 备选 `v4-flash`，用户实测 4.1 拥挤时回退 4 更顺)。
 
