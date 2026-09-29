@@ -1,5 +1,5 @@
 // src/panel/errors.ts — 连接层错误码 → 展示文案（工作稿；M5 打磨 i18n）
-import type { LiteErrorCode } from '../model';
+import type { LiteErrorCode } from '../connection';
 
 const ERROR_TEXT: Record<LiteErrorCode, string> = {
   'err.dshNotFound': '未找到 dsh，请安装或将路径填入 dshLite.executablePath',

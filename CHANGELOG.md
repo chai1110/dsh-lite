@@ -14,6 +14,16 @@
 所有 notable 变更都记录在此。格式参考 [Keep a Changelog](https://keepachangelog.com/)，
 本插件采用里程碑（M0/M1/…）驱动的版本节奏。
 
+## [0.1.0] - 2026-09-28
+
+### 变更（iframe 架构重构——渲染层整体退役）
+
+- **改用官方界面**：侧栏 webview 经本地代理 iframe 嵌入 dsh 官方整页——对话渲染、折叠、工具卡、模型行为与浏览器 100% 一致，官方更新即插件更新，不再自研渲染层追事件形状。
+- **隐藏设置入口**：代理向官方页面注入 `data-dsh-lite` 样式，隐藏设置按钮（Lite 产品定位：无多层设置）。
+- **保留自研本地代理**：cookie 注入（SameSite=Strict 跨站携带不了）、`accept-encoding` 剥离 + HTML 注入后 `content-length` 重写、WebSocket 升级（`/api/remote.mux`）原样转发。
+- **退役**：自研 React 渲染（webview/）、RPC 客户端（rpc/）、会话数据流（session/）、协议与状态合成（panel/{protocol,state}.ts、model.ts）——约 6000 行；连接层精简为 manager + boot（令牌→cookie）+ 重连。
+- **测试**：单元 33 过/0 失败；真机 smoke（对 dsh 0.2.0-rc.1 运行实例）——兑换→代理 200+boot 数据→隐藏设置注入→WS 升级 101 全过；集成测试补 skip 守卫（无 `DSH_LITE_E2E=1` 不再真起 dsh）并修 WS 探测（fetch 不支持 ws://，改原始 socket）。
+
 ## 未发布
 
 ### dsh 0.1.5 兼容：`commands/execute` 第三参改名

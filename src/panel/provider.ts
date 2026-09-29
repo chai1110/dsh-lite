@@ -1,68 +1,95 @@
-// src/panel/provider.ts — webview 视图宿主（侧栏 + 整页共用的接线和广播层）。
+// src/panel/provider.ts — webview 视图宿主（侧栏 + 整页共用）。
 //
-// 职责：
-//   1. 接收 resolveWebviewView（侧栏）与 openFullPage（整页）注册的 webview 句柄；
-//   2. 装载同一份 HTML（抽到 ./html）+ 同一套消息分发（handleUiMessage）；
-//   3. 状态变更时把合成好的 PanelState（抽到 ./state）广播给所有存活面；
-//   4. hello 应答只回发出方（多面共存时不重复广播）。
-//
-// 不在这里做：状态合成（state.ts）、HTML 生成（html.ts）、命令注册（commands.ts）、
-// 一次性迁移（migration.ts）—— 那些都在独立模块。
+// iframe 架构（v0.1.0）：webview 只承载一个全幅 iframe（Lite 本地代理地址），
+// 官方页面经代理加载（cookie 注入在代理完成），折叠/模型选择/编辑重发全部是官方页面自带能力。
+// 扩展侧只负责：起服务（connection）→ 起代理 → 通过 setDisplay 驱动三态（loading/error/ready）。
 import * as vscode from 'vscode';
 
-import type { ConnectionManager, LiteSnapshot } from '../connection';
+import type { ConnectionManager } from '../connection';
 import type { Logger } from '../log';
-import type { SessionService } from '../session/service';
 
-import { getHtml } from './html';
-import {
-  initialState,
-  isProtocolCompatible,
-  mismatchHint,
-  PROTOCOL_VERSION,
-  type HostMessage,
-  type PanelState,
-  type UiMessage,
-} from './protocol';
-import { buildPanelState } from './state';
+import { errorPage, loadingPage, readyPage, type PageCtx } from './html';
+
+/** 面板展示状态（由 extension 侧根据 connection + 代理状态合成后驱动） */
+export type PanelDisplay =
+  | { kind: 'loading'; title: string; hint: string }
+  | { kind: 'error'; title: string; detail: string }
+  | { kind: 'ready'; url: string };
 
 export class DshLitePanelProvider implements vscode.WebviewViewProvider {
-  // M13.1：view/container ID 换新（dshLite.panel[.secondary]/dshLiteSecondary 作废）。
-  // 根因：M8~M12 对「未展开的右侧视图」直接 .focus()，VS Code 找不到其容器时把视图挪进
-  // 当时可见的左侧 Explorer 并把位置写进了 workspaceStorage（explorer.views.state），此后无论
-  // 命令怎么改，视图都按记忆渲染在 Explorer 里。换全新 ID = 抹掉这份陈旧位置，回归声明位置注册。
   static readonly viewId = 'dshLite.view.left';
   static readonly viewIdSecondary = 'dshLite.view.right';
 
-  /** 当前存活的 webview 视图，按 viewType(=viewId) 索引：左侧栏与右侧栏可并存 */
-  private readonly views = new Map<string, vscode.WebviewView>();
-  /** M13：整页对话（WebviewPanel，以编辑器标签形式占满编辑区）；单实例，重复打开只 reveal */
-  private fullPanel?: vscode.WebviewPanel;
-  private state: PanelState = initialState();
-  private conn?: ConnectionManager;
-  private service?: SessionService;
-  private snapshot: LiteSnapshot | null = null;
+  private readonly views = new Map<string, vscode.Webview>();
+  private display: PanelDisplay = {
+    kind: 'loading',
+    title: '正在启动 DSH…',
+    hint: '首次启动需要数秒。',
+  };
+  /** 重试回调（loading/error 页的「重试」按钮触发；extension 注入 conn.reconnect） */
+  private refreshHandler: (() => void) | null = null;
   private readonly log: Logger;
 
   constructor(
-    private readonly extensionUri: vscode.Uri,
+    _extensionUri: vscode.Uri,
     log: Logger,
   ) {
     this.log = log;
   }
 
-  /** 在面板首次解析前由扩展入口注入 */
-  attachConnection(conn: ConnectionManager, service: SessionService): void {
-    this.conn = conn;
-    this.service = service;
-    conn.onChange((snap) => {
-      this.snapshot = snap;
-      this.publish();
-    });
-    service.onChange(() => this.publish());
+  /** 连接接线（extension 调用一次）：连接状态变化 → 驱动面板三态；注入重试回调 */
+  attachConnection(conn: ConnectionManager, refreshHandler: () => void): void {
+    this.refreshHandler = refreshHandler;
+    conn.onChange((snap) => this.onConnectionChange(snap));
   }
 
-  // ===== resolveWebviewView / openFullPage =====
+  /** 连接状态 → 面板三态 */
+  private onConnectionChange(snap: LiteSnapshotForProvider): void {
+    switch (snap.phase) {
+      case 'connecting':
+        this.setDisplay({ kind: 'loading', title: '正在启动 DSH…', hint: '首次启动需要数秒。' });
+        return;
+      case 'ready':
+        // ready 页地址由 extension 在代理就绪后通过 setDisplay 下发；此处保持 loading 兜底
+        return;
+      case 'error':
+        this.setDisplay({
+          kind: 'error',
+          title: 'DSH Lite 启动失败',
+          detail: this.errText(snap.errorCode),
+        });
+        return;
+      case 'idle':
+        this.setDisplay({ kind: 'loading', title: 'DSH 已停止', hint: '点击重试启动。' });
+        return;
+      case 'offline':
+        this.setDisplay({ kind: 'error', title: '连接断开', detail: '点击重试可重新拉起服务。' });
+        return;
+    }
+  }
+
+  private errText(code: string | null): string {
+    const map: Record<string, string> = {
+      'err.dshNotFound': '未找到 dsh，请安装 DeepSeek Harness 或在设置里填写路径',
+      'err.nodeNotFound': '未找到 Node.js（请检查 PATH）',
+      'err.spawnEinval': '启动参数无效，请重试',
+      'err.portOccupied': '端口全部被占用，请释放后重试',
+      'err.startTimeout': 'dsh 启动超时，请重试',
+      'err.startCrashed': 'dsh 启动后崩溃，请查看日志',
+      'err.tokenParse': '未取得启动令牌，请重试',
+      'err.cookieExchange': '认证交换失败，请重试',
+    };
+    return (code && map[code]) || '连接出现问题，请重试';
+  }
+
+  /** 扩展侧驱动面板显示（状态变化时调用；内部自动刷新所有存活视图） */
+  setDisplay(display: PanelDisplay): void {
+    this.display = display;
+    for (const v of this.views.values()) this.renderInto(v);
+    if (this.fullPanel) this.renderInto(this.fullPanel.webview);
+  }
+
+  // ===== webview 生命周期 =====
 
   resolveWebviewView(
     webviewView: vscode.WebviewView,
@@ -70,200 +97,75 @@ export class DshLitePanelProvider implements vscode.WebviewViewProvider {
     _token: vscode.CancellationToken,
   ): void {
     const viewType = webviewView.viewType;
-    this.views.set(viewType, webviewView);
-    this.wireWebview(webviewView.webview, () => {
-      // 视图关闭 → 从广播集移除（右侧栏隐藏≠dispose；只有真正关闭才触发）
-      webviewView.onDidDispose(() => this.views.delete(viewType));
-    });
-    this.log(`[panel:${viewType}] webview 已创建，等待 UI 握手`);
+    this.views.set(viewType, webviewView.webview);
+    webviewView.onDidDispose(() => this.views.delete(viewType));
+    this.wireWebview(webviewView.webview);
+    this.renderInto(webviewView.webview);
+    this.log(`[panel:${viewType}] webview 已创建`);
   }
 
-  /** M13：整页对话 —— 以 WebviewPanel 在编辑区开一个「DSH Lite」标签，占满整页（对齐 Chat Editor 形态）。
-   *  与左/右侧栏共用同一 host（provider.post 广播）与同一会话，任何一面操作其它面同步。 */
-  openFullPage(): void {
-    if (this.fullPanel) {
-      this.fullPanel.reveal(vscode.ViewColumn.Active, true);
+  /** 在指定 webview 上重渲染当前状态 */
+  private renderInto(webview: vscode.Webview): void {
+    const ctx: PageCtx = {
+      nonce: randomNonce(),
+      frameSrc: this.display.kind === 'ready' ? this.display.url : null,
+    };
+    if (this.display.kind === 'ready') {
+      webview.html = readyPage(ctx);
       return;
     }
-    const outUri = vscode.Uri.joinPath(this.extensionUri, 'out');
-    const assetsUri = vscode.Uri.joinPath(this.extensionUri, 'assets');
-    const panel = vscode.window.createWebviewPanel(
-      'dshLite.chat.full',
+    if (this.display.kind === 'error') {
+      webview.html = errorPage(ctx, this.display.title, this.display.detail);
+      return;
+    }
+    webview.html = loadingPage(ctx, this.display.title, this.display.hint);
+  }
+
+  private wireWebview(webview: vscode.Webview): void {
+    webview.options = { enableScripts: true };
+    webview.onDidReceiveMessage((msg: { type?: string }) => {
+      // iframe 架构下页面自身完成一切交互；此处仅保留刷新入口（loading/error 页的重试按钮）
+      if (msg?.type === 'ui/refresh') this.refreshHandler?.();
+    });
+  }
+
+  private renderAll(): void {
+    for (const v of this.views.values()) this.renderInto(v);
+  }
+
+  /** 供命令层/配置变更触发的整体刷新 */
+  refreshAll(): void {
+    this.renderAll();
+  }
+
+  // ===== 整页模式（编辑区标签；M 系列遗留入口，保留） =====
+
+  private fullPanel: vscode.WebviewPanel | undefined;
+
+  /** 整页打开（编辑区标签）；重复调用只 reveal 已有面板 */
+  openFullPage(): void {
+    if (this.fullPanel) {
+      this.fullPanel.reveal();
+      this.renderInto(this.fullPanel.webview);
+      return;
+    }
+    this.fullPanel = vscode.window.createWebviewPanel(
+      'dshLite.full',
       'DSH Lite',
       vscode.ViewColumn.Active,
-      {
-        enableScripts: true,
-        retainContextWhenHidden: true,
-        localResourceRoots: [outUri, assetsUri],
-      },
+      { enableScripts: true },
     );
-    panel.iconPath = {
-      light: vscode.Uri.joinPath(assetsUri, 'icon-light.svg'),
-      dark: vscode.Uri.joinPath(assetsUri, 'icon-dark.svg'),
-    };
-    this.fullPanel = panel;
-    this.wireWebview(panel.webview, () => {
-      panel.onDidDispose(() => {
-        if (this.fullPanel === panel) this.fullPanel = undefined;
-      });
-    }, true);
-    this.log('[panel:dshLite.full] 整页对话已打开');
+    this.fullPanel.onDidDispose(() => (this.fullPanel = undefined));
+    this.renderInto(this.fullPanel.webview);
   }
+}
 
-  /** 给一个 webview（侧栏视图或整页面板）装载同一份 HTML/协议，事件统一进 handleUiMessage */
-  private wireWebview(webview: vscode.Webview, attachDispose: () => void, full = false): void {
-    const outUri = vscode.Uri.joinPath(this.extensionUri, 'out');
-    const assetsUri = vscode.Uri.joinPath(this.extensionUri, 'assets');
-    webview.options = {
-      enableScripts: true,
-      // M9：out/=构建产物（webview bundle+css）；assets/=图标字体（codicon）等静态资源
-      localResourceRoots: [outUri, assetsUri],
-    };
-    webview.html = getHtml(webview, outUri, assetsUri, full);
-    webview.onDidReceiveMessage((raw: unknown) => {
-      if (typeof raw !== 'object' || raw === null || typeof (raw as UiMessage).type !== 'string') {
-        return;
-      }
-      this.handleUiMessage(raw as UiMessage, webview);
-    });
-    attachDispose();
-  }
+/** provider 的轻量类型引用（避免 import 循环） */
+interface LiteSnapshotForProvider {
+  phase: string;
+  errorCode: string | null;
+}
 
-  // ===== UI → 宿主消息分发 =====
-
-  private handleUiMessage(msg: UiMessage, from: vscode.Webview): void {
-    switch (msg.type) {
-      case 'hello': {
-        if (!isProtocolCompatible(msg.protocolVersion)) {
-          const hint = mismatchHint(msg.protocolVersion);
-          const message =
-            hint === 'reload' ? '请重载窗口以更新面板' : '面板版本高于扩展，请更新 DSH Lite';
-          this.log(
-            `协议版本不匹配：UI=${msg.protocolVersion} 宿主=${PROTOCOL_VERSION} → ${hint}`,
-          );
-          this.postTo(from, { type: 'host/error', code: 'protocol-mismatch', message });
-          return;
-        }
-        // M13：hello 应答只回给发出方（多面共存时不再向所有 webview 重复广播 hello）
-        this.postTo(from, { type: 'hello', protocolVersion: PROTOCOL_VERSION });
-        this.log(`[panel] UI 握手完成（protocol=${msg.protocolVersion}），下发初始状态`);
-        this.publish();
-        if (this.conn) void this.conn.ensureConnected();
-        return;
-      }
-      case 'ui/ready':
-        this.publish();
-        if (this.service) void this.service.fetchModels().catch(() => {});
-        return;
-      case 'ui/refresh':
-        if (this.conn) {
-          void this.conn.reconnect().then((snap) => {
-            this.snapshot = snap;
-            this.publish();
-          });
-        }
-        return;
-      case 'ui/selectSession':
-        this.log(`切换会话: ${msg.sessionId}`);
-        this.service?.select(msg.sessionId);
-        return;
-      case 'ui/sessionRename':
-        if (this.service) {
-          void this.service.renameSession(msg.sessionId, msg.title).catch((err) =>
-            this.log(`会话改名失败: ${String(err)}`),
-          );
-        }
-        return;
-      case 'ui/sessionArchive':
-        if (this.service) {
-          void this.service.archiveSession(msg.sessionId).catch((err) =>
-            this.log(`归档失败: ${String(err)}`),
-          );
-        }
-        return;
-      case 'ui/sessionUnarchive':
-        if (this.service) {
-          void this.service.unarchiveSession(msg.sessionId).catch((err) =>
-            this.log(`取消归档失败: ${String(err)}`),
-          );
-        }
-        return;
-      case 'ui/newSession':
-        if (this.service) {
-          void this.service.create().catch((err) => this.log(`新建失败: ${String(err)}`));
-        }
-        return;
-      case 'ui/promptSubmit': {
-        if (this.service) {
-          void this.service.submit(msg.text).catch((err) =>
-            this.log(`发送失败: ${String(err)}`),
-          );
-        }
-        return;
-      }
-      case 'ui/stop':
-        if (this.service) void this.service.stop();
-        return;
-      case 'ui/slashQuery':
-        if (this.service) {
-          void this.service.openSlash().catch((err) =>
-            this.log(`命令目录拉取失败: ${String(err)}`),
-          );
-        }
-        return;
-      case 'ui/slashClose':
-        this.service?.closeSlash();
-        return;
-      case 'ui/selectModel':
-        if (this.service) {
-          void this.service
-            .selectModel(msg.provider, msg.model)
-            .then(() => this.log(`模型已切换: ${msg.provider}/${msg.model}`))
-            .catch((err) => this.log(`模型切换失败: ${String(err)}`));
-        }
-        return;
-      case 'ui/approvalAnswer':
-        if (this.service) {
-          void this.service.answerApproval(msg.eventId, msg.outcome).catch((err) =>
-            this.log(`审批应答失败: ${String(err)}`),
-          );
-        }
-        return;
-      case 'ui/goalAction':
-        if (this.service) void this.service.goalAction(msg.action);
-        return;
-    }
-  }
-
-  /** 配置变更后重发状态（如 composerEnterBehavior 影响输入框提示语，需立即下发） */
-  republish(): void {
-    this.publish();
-  }
-
-  // ===== 宿主 → UI 状态发布 =====
-
-  private publish(): void {
-    const next = buildPanelState({
-      snapshot: this.snapshot,
-      conn: this.conn ?? null,
-      service: this.service ?? null,
-    });
-    this.state = next;
-    this.post({ type: 'host/state', state: this.state });
-  }
-
-  /** 广播给所有存活面（侧栏视图 + 整页面板），三面同屏同会话 */
-  private post(message: HostMessage): void {
-    for (const view of this.views.values()) {
-      void view.webview.postMessage(message);
-    }
-    if (this.fullPanel) {
-      void this.fullPanel.webview.postMessage(message);
-    }
-  }
-
-  /** 定向投递（hello 应答专用，避免对其它面重复广播） */
-  private postTo(webview: vscode.Webview, message: HostMessage): void {
-    void webview.postMessage(message);
-  }
+function randomNonce(): string {
+  return Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
 }

@@ -1,8 +1,8 @@
 // scripts/build.mjs — DSH Lite 的 esbuild 构建脚本（双 bundle）
 //
 // 用法：
-//   node scripts/build.mjs            构建 out/extension.js + out/webview.js
-//   node scripts/build.mjs --watch    上面两个 bundle 都进入 watch
+//   node scripts/build.mjs            构建 out/extension.js
+//   node scripts/build.mjs --watch    扩展 bundle 进入 watch
 //   node scripts/build.mjs --test     两个 bundle + 把 test/**/*.test.ts 编到 out/test/
 //
 // 两个入口的配置**完全独立**（宿主是 node/cjs，UI 是 browser/iife），
@@ -31,22 +31,6 @@ const extensionConfig = {
   logLevel: 'warning',
 };
 
-/** UI 侧：React 打进单文件 iife，供 webview 用 <script> 引入。 */
-const webviewConfig = {
-  entryPoints: ['webview/index.tsx'],
-  outfile: 'out/webview.js',
-  bundle: true,
-  platform: 'browser',
-  format: 'iife',
-  target: 'es2020',
-  jsx: 'automatic',
-  // webview 里没有 process，React 开发版会读 process.env.NODE_ENV，必须在编译期替换掉。
-  define: { 'process.env.NODE_ENV': '"production"' },
-  // index.tsx 里 import './styles.css' 会被抽成同名 out/webview.css。
-  loader: { '.css': 'css' },
-  sourcemap: true,
-  logLevel: 'warning',
-};
 
 /** 测试：node --test 直接跑 CJS 产物；测试文件缺失时返回 null 而不是报错。 */
 function makeTestConfig() {
@@ -79,10 +63,7 @@ function makeTestConfig() {
 }
 
 function collectConfigs() {
-  const configs = [
-    { name: 'extension', options: extensionConfig },
-    { name: 'webview', options: webviewConfig },
-  ];
+  const configs = [{ name: 'extension', options: extensionConfig }];
   if (withTest) {
     const tests = makeTestConfig();
     if (tests) configs.push({ name: 'test', options: tests });

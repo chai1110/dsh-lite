@@ -2,7 +2,7 @@
   "name": "dsh-lite",
   "displayName": "DSH Lite",
   "description": "DeepSeek Harness 的精简 VS Code 侧栏客户端：一页到底，只保留对话、会话与审批。",
-  "version": "0.0.2",
+  "version": "0.1.0",
   "publisher": "chai1110",
   "license": "MIT",
   "repository": {
@@ -110,32 +110,6 @@
           "type": "boolean",
           "default": false,
           "description": "启动 VS Code 后自动在右侧打开 DSH 对话（M13 起开右栏，旧版无副侧栏时回退左侧）。"
-        },
-        "dshLite.composerEnterBehavior": {
-          "type": "string",
-          "enum": [
-            "send",
-            "newline"
-          ],
-          "enumDescriptions": [
-            "Enter 发送消息",
-            "Enter 换行"
-          ],
-          "default": "send",
-          "description": "输入框中 Enter 键的行为（M3 生效）。"
-        },
-        "dshLite.followUpQueueMode": {
-          "type": "string",
-          "enum": [
-            "queue",
-            "steer"
-          ],
-          "enumDescriptions": [
-            "排队：等当前回合结束再发",
-            "跟进：立即插入当前回合"
-          ],
-          "default": "queue",
-          "description": "运行中再次发送消息时的处理方式（M3 生效）。"
         },
         "dshLite.workspaceRootIndex": {
           "type": "number",

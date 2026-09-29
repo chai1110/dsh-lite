@@ -5,5 +5,3 @@
 export { DshLitePanelProvider } from './provider';
 export { registerPanelCommands, openChatRight } from './commands';
 export { runViewLocationMigration } from './migration';
-export type { PanelState, HostMessage, UiMessage, ConnectionState } from './protocol';
-export { PROTOCOL_VERSION } from './protocol';
