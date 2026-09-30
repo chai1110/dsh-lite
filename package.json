@@ -1,7 +1,7 @@
 {
   "name": "dsh-lite",
   "displayName": "DSH Lite",
-  "description": "DeepSeek Harness 的精简 VS Code 侧栏客户端：一页到底，只保留对话、会话与审批。",
+  "description": "DeepSeek Harness 的轻量 VS Code 侧栏客户端：本地代理 iframe 嵌入官方界面，隐藏设置入口。",
   "version": "0.1.0",
   "publisher": "chai1110",
   "license": "MIT",
@@ -144,5 +144,14 @@
     "react-dom": "^18.3.1",
     "typescript": "^5.7.2",
     "ws": "^8.21.3"
-  }
+  },
+  "keywords": [
+    "dsh",
+    "deepseek",
+    "harness",
+    "deepseek harness",
+    "ai",
+    "chat",
+    "assistant"
+  ]
 }
