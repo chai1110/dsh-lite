@@ -65,7 +65,7 @@
 - git `index.lock` 残留：每个 git 命令前 `rm -f .git/index.lock`，加 `-c core.fsmonitor=false -c gc.auto=0`。
 - `ps`/`lsof` 跨进程被拒：用 `pgrep -fl`；端口探测用 `curl`。
 - **macOS 无 `timeout` 命令**；Bash 工具自带的 timeout 参数可用。
-- 沙箱内 `dsh boot` 因 `~/.dsh` 凭证写锁竞争无法完成——真机集成测试在**用户终端**跑。
+- ~~沙箱内 dsh boot 因凭证写锁无法完成~~ **2026-09-30 误诊纠正**：dsh boot 与 ConnectionManager 生命周期在沙箱内完全正常（独立脚本全绿）；挂起的是 node --test 壳层与沙箱的交互。集成测试仍在用户终端跑（权威）。
 
 ### dsh web / Token
 - dsh web 每次启动打印一次性 token URL；重启后旧 URL 的兑换仍可用（代理 401 自动重兑）。

@@ -1,8 +1,11 @@
 // test/integration.dsh.test.ts — 真 dsh 端到端（iframe 架构精简版；环境有 dsh 时运行）。
 //
 // 覆盖：manager 生命周期（自起 → 令牌 → cookie → 代理 200 → 停止）。
-// 沙箱注意：本机 ~/.dsh 凭证写锁会让 dsh boot 崩溃，因此本文件在未显式设置 DSH_HOME 时自动
-// 隔离到临时目录（调用方环境在文件级 after 还原）。请在本机终端跑：DSH_LITE_E2E=1 npm test
+// 沙箱注意（2026-09-30 实测定位）：dsh boot 本身在沙箱内**完全正常**（隔离 DSH_HOME 后
+// 15 秒内就绪；ConnectionManager 全生命周期亦可用独立脚本完整走通）——
+// 挂起/静默失败发生在 **node --test 壳层与沙箱的交互**（子进程隔离下 ~1s 静默失败、
+// 进程内隔离下无输出挂起），并非本文件或 lite 代码的问题。
+// 因此本测试的权威运行环境是**本机正常终端**：DSH_LITE_E2E=1 npm test
 import assert from 'node:assert/strict';
 import { existsSync, mkdtempSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
