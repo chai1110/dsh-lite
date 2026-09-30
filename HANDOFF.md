@@ -65,7 +65,7 @@
 - git `index.lock` 残留：每个 git 命令前 `rm -f .git/index.lock`，加 `-c core.fsmonitor=false -c gc.auto=0`。
 - `ps`/`lsof` 跨进程被拒：用 `pgrep -fl`；端口探测用 `curl`。
 - **macOS 无 `timeout` 命令**；Bash 工具自带的 timeout 参数可用。
-- ~~沙箱内 dsh boot 因凭证写锁无法完成~~ **2026-09-30 误诊纠正**：dsh boot 与 ConnectionManager 生命周期在沙箱内完全正常（独立脚本全绿）；挂起的是 node --test 壳层与沙箱的交互。集成测试仍在用户终端跑（权威）。
+- **集成测试挂起案（2026-09-30 终版告破）**：两轮误诊（凭证写锁→node --test 壳层）后定位到真因——测试自身断言永假（`settingsArea` 字符串被自家注入 CSS 命中）+ 失败路径不清理（dsh 挂在事件循环上）+ `baseUrl + '/'` 双斜杠 400。修复后 `DSH_LITE_E2E=1 npm test` **沙箱内 34/34 全绿**（0 跳过）。教训：测试失败不留清理路径，会让「断言 bug」伪装成「环境问题」。
 
 ### dsh web / Token
 - dsh web 每次启动打印一次性 token URL；重启后旧 URL 的兑换仍可用（代理 401 自动重兑）。

@@ -24,6 +24,14 @@
 - **退役**：自研 React 渲染（webview/）、RPC 客户端（rpc/）、会话数据流（session/）、协议与状态合成（panel/{protocol,state}.ts、model.ts）——约 6000 行；连接层精简为 manager + boot（令牌→cookie）+ 重连。
 - **测试**：单元 33 过/0 失败；真机 smoke（对 dsh 0.2.0-rc.1 运行实例）——兑换→代理 200+boot 数据→隐藏设置注入→WS 升级 101 全过；集成测试补 skip 守卫（无 `DSH_LITE_E2E=1` 不再真起 dsh）并修 WS 探测（fetch 不支持 ws://，改原始 socket）。
 
+### 补记（0.1.0 发布后同日）
+
+- **修复集成测试自身两个 bug**（不影响扩展运行时，vsix 无需重装）：`!html.includes('settingsArea')`
+  断言永假（注入 CSS 选择器含该字符串）改为正向断言（`data-dsh-lite` 标记 + CSS 规则存在）；
+  测试体包 try/finally 兜底 `proxy.stop()` / `conn.stop()`（此前断言失败会把自起的 dsh 留在
+  事件循环上，runner 永不退出——这正是"沙箱跑不了"的真实原因）；`fetch(proxy.baseUrl + '/')`
+  双斜杠改直取。修复后 `DSH_LITE_E2E=1 npm test` **34/34 全绿**（0 跳过）。
+
 ## 历史（M12–M15 里程碑，随 0.0.1 / 0.0.2 发布）
 
 > 以下为 0.1.0 iframe 重构**之前**的自研渲染架构时期的变更记录，保留作史录；
